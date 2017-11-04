@@ -1,4 +1,6 @@
 from math import ceil, log
+from fractions import Fraction
+from decimal import *
 
 class Posit:
     def __init__(self, nbits, es):
@@ -7,7 +9,7 @@ class Posit:
         self.nbits = nbits
         # max number of exponent bits
         self.es = es
-        # number of patterns
+        # number of bit patterns
         self.npat = 2**nbits
         # useed
         self.useed = 2**2**es
@@ -31,56 +33,168 @@ class Posit:
         # check if a number is a valid posit of nbits
         return 0 <= self.number and self.number < npat
 
-    def get_sign_bit():
+    def get_sign_bit(self, x):
         # extract the sign bit, returns 0 or 1
-        return self.number >> (self.nbits - 1)
+        return x >> (self.nbits - 1)
 
-    def check_bit(self, x):
+    def check_bit(self, x, i):
         # check if the xth bit is 0
-        return int((self.number & 2**x) > 0)
+        return int((x & 2**i) > 0)
 
     def get_regime_value(self):
-        # the first bit in regime bit
-        first = self.check_bit(self.nbits-2)
-        # the run length of the regime bits
+        # store number in separate variable
+        x = self.number
+        # check sign bit
+        sign = self.get_sign_bit(self.number)
+        # decode two's complement if sign is 1
+        if sign == 1:
+            x = self.twos_complement(x)
         
+        # the first bit in regime bit
+        first = self.check_bit(x, self.nbits-2)
+        
+        # the run length of the regime bits
         length = 1
         for i in range(self.nbits-3, -1, -1):
-            if first == self.check_bit(i): 
+            if first == self.check_bit(x, i): 
                 length += 1
+            else:
+                break
         
         if first == 0:  
-            return -length
+            return - length
         else:
             return length - 1
         
     def get_exponent_value(self):
-        # get regime length
+        # store number in separate variable
+        x = self.number
+        # check sign bit
+        sign = self.get_sign_bit(self.number)
+        # decode two's complement if sign is 1
+        if sign == 1:
+            x = self.twos_complement(x)
+        
         regime_value = self.get_regime_value()
+        
+        if regime_value < 0:
+            regime_length = -regime_value + 1
+        else:
+            regime_length = regime_value + 2
+        
+        # start of exponent
+        start = 1 + regime_length
+        exponent = 0
+        power = 2**(self.es - 1)
+        
+        # compute value of exponent
+        for i in range(start, self.nbits):
+            exponent += power * self.check_bit(x, self.nbits - 1 - i)
+            power //= 2
+        
+        return exponent
+
+    def to_signed_int(self, x):
+        sign = get_sign_bit()
+        if sign == 1:
+            x = - twos_complement(x)
+        return x
+
+    def __gt__(self, other):
+        return to_signed_int(self.number) > to_signed_int(other.number)
+
+    def __lt__(self, other):
+        return to_signed_int(self.number) < to_signed_int(other.number)
+
+    def __eq__(self, other):
+        return self.number == other.number
+
+    def get_fraction_integer():
+        # store number in separate variable
+        x = self.number
+        # check sign bit
+        sign = self.get_sign_bit(self.number)
+        # decode two's complement if sign is 1
+        if sign == 1:
+            x = self.twos_complement(x)
+       
+        # get regime_value 
+        regime_value = self.get_regime_value()
+        
+        # use regime_value to compute regime_length
+        if regime_value < 0:
+            regime_length = - regime_value + 1
+        else:
+            regime_length = regime_value + 2
+
+        # start of fraction
+        start = nbits - 2 - regime_length - self.es
+        
+        return (2**self.nbits - 1)
+
+    def get_fraction_fraction(self):
+        # store number in separate variable
+        x = self.number
+        # check sign bit
+        sign = self.get_sign_bit(self.number)
+        # decode two's complement if sign is 1
+        if sign == 1:
+            x = self.twos_complement(x)
+        
+        # get regime_value 
+        regime_value = self.get_regime_value()
+        
+        # use regime_value to compute regime_length
         if regime_value < 0:
             regime_length = -regime_value + 1
         else:
             regime_length = regime_value + 2
 
-        # start of exponent
-        start = 1 + regime_length
-        exponent = 0
-        power = 2**(self.es - 1)
-        # compute value of exponent
-        while start < self.nbits:
-            exponent += power * self.check_bit(self.nbits - 1 - start)
-            power //= 2
-            start += 1
+        # start of fraction
+        start = 1 + regime_length + self.es + 1
+        # initial fraction value is 1 because hidden bit is always 1
+        value = Fraction(1, 1)
+        power = 2
+        for i in range(start, self.nbits+1):
+            value += Fraction(1, power) * self.check_bit(x, self.nbits - i)
+            power *= 2
+
+        return value
+
+    # check if a number is infinite
+    def isInf(self, x):
+        return x == 2**(nbits-1) - 1
+
+    # add two posits
+    def __mul__(self, other):
+        fraction_a = self.get_fraction_value()
+        regime_a = self.get_regime_value()
+        exponent_a = self.get_exponent_value()
+        fraction_b = other.get_fraction_value()
+        regime_b = other.get_regime_value()
+        exponent_b = other.get_fracton_value()
+
+        # compute total scale factor
+        total_power =  (2**es * (regime_a + regime_b) + exponent_a + exponent_b)
+        # resulting regime value
+        regime_c = total_power // 2**es
+        # resulting regime 
+        exponent_c = total_power % 2**es
+        if regime_c < 0:
+            regime_length = - regime_c + 1  
+        else:
+            regime_length = regime_c + 2
+
         
-        return exponent
+        fraction_bits = self.nbits - 1 - self.es - regime_length
+        
+    def __add__(self, other):
+        
 
-    def get_fraction():
-        # to be implemented
-        return None
+    # get two's complement of a number
+    def twos_complement(self, x):
+        return self.npat - x
 
-    def twos_complement(self):
-        # to be implemented
-        return None
-
-n = Posit(5,3)
-n.set_bit_pattern("0111")
+n = Posit(16,3)
+n.set_bit_pattern("0000110111011101")
+print(n.get_fraction_value())
