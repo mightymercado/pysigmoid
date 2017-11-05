@@ -194,9 +194,9 @@ class Posit:
         exponent_b = other.get_exponent_value()
 
         sign_c = sign_a * sign_b
-
         # compute total scale factor
         scale_c =  (2**self.es * (regime_a + regime_b) + exponent_a + exponent_b)
+        fraction_c = fraction_a * fraction_b
 
         # construct posit then return
         return self.construct_posit(sign_c, scale_c, fraction_c)
@@ -364,8 +364,8 @@ class Posit:
 n = Posit(10,2)
 m = Posit(10,2)
 
-n.set_bit_pattern("0000100110")
-m.set_bit_pattern("0000101110")
+n.set_bit_pattern("000010011")
+m.set_bit_pattern("000010111")
 print(n)
 print(m)
 print(n+m)
