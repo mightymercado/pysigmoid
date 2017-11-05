@@ -32,7 +32,7 @@ class Posit:
 
     def is_valid(self):
         # check if a number is a valid posit of nbits
-        return 0 <= self.number and self.number < npat
+        return 0 <= self.number and self.number < self.npat
 
     def get_sign_bit(self, x):
         # extract the sign bit, returns 0 or 1
@@ -267,7 +267,7 @@ class Posit:
 
         p = Posit(self.nbits, self.es)
         p.set_bit_pattern(n)
-        
+
         return p
 
     def print_bits(self, n):
@@ -289,5 +289,25 @@ class Posit:
     def twos_complement(self, x):
         return self.npat - x
 
-n = Posit(8,3)
-print(n.construct_posit(0, -2, 2, 1))
+    def to_float(self):
+        exponent = self.get_exponent_value()
+        regime = self.get_regime_value()
+        fraction = self.get_fraction_fraction()
+        k = 0
+        # remove powers of two in denominator
+        w = fraction.denominator
+        while w > 0 and w % 2 == 0:
+            w //= 2
+            k += 1
+        # remove powers of two in numerator
+        w = fraction.numerator
+        while w > 0 and w % 2 == 0:
+            w //= 2
+            k -= 1
+        # unlimited precision
+        getcontext().prec = 1000
+        return Decimal(2)**Decimal(2**self.es*regime+exponent-k) * Decimal(w)
+
+n = Posit(16,3)
+n.set_bit_pattern("0000110111011101")
+print(n.to_float())
