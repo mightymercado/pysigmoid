@@ -1,6 +1,7 @@
 from math import ceil, log
 from fractions import Fraction
-from decimal import *
+from decimal import Decimal, getcontext
+from ctypes import c_ulonglong, c_double
 
 class Posit:
     def __init__(self, nbits, es):
@@ -22,6 +23,9 @@ class Posit:
         # extra bits for worst-case summations that produce carry bits
         self.qextra = self.qsize - (nbits - 2) * 2**(es + 2)
         self.inf = 2**(nbits - 1)
+        
+    def float_to_int(self, n):
+        return c_ulonglong.from_buffer(c_double(n)).value
 
     def set_bit_pattern(self, x):
         # given a strings of 0's and 1's, set the Posit to that value
@@ -29,6 +33,14 @@ class Posit:
             self.number = int(x, 2)
         elif self.nbits >= self.count_bits(x):
             self.number = x
+
+    def set_float(self, x):
+        if type(x) == float:
+            n = self.float_to_int(x)
+            sign = n >> 63
+            exponent = ((n & (2**63-1)) >> 52) - 1023  # remove sign then shift
+            fraction = (2**52) + (n & (2**52-1))
+            self.number = self.construct_posit(sign, exponent, fraction).number
 
     def is_valid(self):
         # check if a number is a valid posit of nbits
@@ -53,7 +65,7 @@ class Posit:
             x = self.twos_complement(x)
         # the first bit in regime bit
         first = self.check_bit(x, self.nbits-2)
-
+        
         # the run length of the regime bits
         length = 1
         for i in range(self.nbits-3, -1, -1):
@@ -174,6 +186,7 @@ class Posit:
 
         n = self.count_bits(x)
         # rounding needs to be done
+        
         if bits < n:
             # overflown bits
             overflown = x & (2**(n-bits) - 1)
@@ -182,12 +195,11 @@ class Posit:
             # check if round up
             if overflown > 2**(n-bits-1):
                 x = x + 2**(n-bits)
-        
+            
         return x
 
     # multiply two posits
     def __mul__(self, other):
-        
         # decode self
         sign_a = self.get_sign_bit(self.number)
         fraction_a = self.get_fraction_int()
@@ -203,67 +215,70 @@ class Posit:
         sign_c = sign_a * sign_b
 
         # compute total scale factor
-        total_power =  (2**self.es * (regime_a + regime_b) + exponent_a + exponent_b)
-        
+        scale_c =  (2**self.es * (regime_a + regime_b) + exponent_a + exponent_b)
+
+        # construct posit then return
+        return self.construct_posit(sign_c, scale_c, fraction_c)
+    
+    def construct_posit(self, sign, scale, fraction):
+        n = 0
+
         # resulting regime value
-        regime_c = total_power // 2**self.es
+        regime = scale // 2**self.es
         # resulting regime 
-        exponent_c = total_power % 2**self.es
+        exponent = scale - regime * 2**self.es
 
-        # determine regime length
-        if regime_c < 0:
-            regime_length = - regime_c + 1  
+        # encode regime
+        if regime >= 0:
+            regime_length = regime + 2
         else:
-            regime_length = regime_c + 2
+            regime_length = - regime + 1
 
-        if regime_length > self.nbits - 1:
-            # overflow, round to maxpos
-            if regime_c >= 0:
-                return self.maxpos
-            # underflow, round to minpos
+        # overflow to maxpos underflow to minpos
+        if regime_length >= self.nbits:
+            p = Posit(self.nbits, self.es)
+            if regime >= 0:
+                p.set_bit_pattern(self.maxpos)
             else:
-                return self.minpos
-        
+                p.set_bit_pattern(self.minpos)
+            return p
+
+        if regime >= 0:
+            n |= (2**(regime_length-1)-1) << (self.nbits-regime_length)
+        else:
+            n |= 1 << (self.nbits-1-regime_length)
+
         # count number of bits available for exponent and fraction
         exponent_bits = min(self.es, self.nbits - 1 - regime_length)
         fraction_bits = max(0, self.nbits - 1 - regime_length - self.es)
         
-        # get fraction
-        fraction_c = fraction_a * fraction_b
         # round results
-        exponent_c = round(exponent_c, exponent_bits)
+        exponent = self.round(exponent, exponent_bits)
 
+        # round, +1 is for hidden bit
+        fraction = self.round(fraction, fraction_bits+1)
+
+        # truncate fraction after rounding
+        while fraction % 2 == 0 and fraction > 0:
+            fraction //= 2
+
+        # length of fraction bits, -1 is for hidden bit
+        fraction_length = self.count_bits(fraction) - 1
         # remove hidden bit
-        fraction_c &= 2**(self.count_bits(fraction_c)-1) - 1
-        fraction_c = round(fraction_c, fraction_bits)
-        # truncate fraction
-        while fraction_c % 2 == 0 and fraction_c > 0:
-            fraction_c //= 2
+        fraction &= 2**(self.count_bits(fraction)-1) - 1
         
-        # construct posit then return
-        return self.construct_posit(sign_c, regime_c, exponent_c, fraction_c)
-    
-    def construct_posit(self, sign, regime, exponent, fraction):
-        n = 0
-
-        # encode regime
-        if regime >= 0:
-            
-            regime_length = regime + 2
-            n |= (2**(regime_length-1)-1) << (self.nbits-regime_length)
-            
-        else:
-            regime_length = - regime + 1
-            n |= 1 << (self.nbits-1-regime_length)
+        
         
         # encode exponent
         exponent_bits = min(self.es, self.nbits - 1 - regime_length)
         n |= exponent << (self.nbits - 1 - regime_length - exponent_bits)
-        
-        # encode fraction        
-        n |= fraction << (self.nbits - 1 - regime_length - exponent_bits - self.count_bits(fraction))
+        self.print_bits(n)
+        # encode fraction
+        n |= fraction << (self.nbits - 1 - regime_length - exponent_bits - fraction_length)
         p = Posit(self.nbits, self.es)
         p.set_bit_pattern(n)
+        self.print_bits(n)
+
         return p
 
     def print_bits(self, n):
@@ -275,7 +290,7 @@ class Posit:
         if x == 0:
             return 1
         c = 0
-        while x>0:
+        while x > 0:
             x //= 2
             c += 1
         return c
@@ -311,48 +326,15 @@ class Posit:
         
         # get fraction
         fraction_c = fraction_a + fraction_b
-        # resulting regime value
-        regime_c = scale_c // 2**self.es
-        # resulting regime 
-        exponent_c = scale_c - regime_c * 2**self.es
         
-        # determine regime length
-        if regime_c < 0:
-            regime_length = - regime_c + 1  
-        else:
-            regime_length = regime_c + 2
-
-        if regime_length > self.nbits - 1:
-            # overflow, round to maxpos
-            if regime_c >= 0:
-                return self.maxpos
-            # underflow, round to minpos
-            else:
-                return self.minpos
-
-        # count number of bits available for exponent and fraction
-        exponent_bits = min(self.es, self.nbits - 1 - regime_length)
-        fraction_bits = max(0, self.nbits - 1 - regime_length - self.es)
-        
-        # round results
-        exponent_c = round(exponent_c, exponent_bits)
-
-        # remove hidden bit
-        fraction_c &= 2**(self.count_bits(fraction_c)-1) - 1
-        fraction_c = round(fraction_c, fraction_bits)
-
-        # truncate fraction
-        while fraction_c % 2 == 0 and fraction_c > 0:
-            fraction_c //= 2
-
         # construct posit then return
-        return self.construct_posit(0, regime_c, exponent_c, fraction_c)
+        return self.construct_posit(0, scale_c, fraction_c)
 
     # get two's complement of a number
     def twos_complement(self, x):
         return self.npat - x
 
-    def to_float(self):
+    def __str__(self):
         sign = self.get_sign_bit(self.number)
         exponent = self.get_exponent_value()
         regime = self.get_regime_value()
@@ -370,9 +352,9 @@ class Posit:
             w //= 2
             k -= 1
             
-        # unlimited precision
-        getcontext().prec = 1000
-        return (-1)**sign * Decimal(2)**Decimal(2**self.es*regime+exponent-k) * Decimal(w)
+        # 100 digits of precision
+        getcontext().prec = 100
+        return ((-1)**sign * Decimal(2)**Decimal(2**self.es*regime+exponent-k) * Decimal(w)).__str__()
 
     def get_reciprocal(self):
         r = Posit(self.nbits, self.es)
@@ -388,14 +370,7 @@ class Posit:
         p.set_bit_pattern(twos_complement(self.number))
         return p
 
-n = Posit(16,2)
-m = Posit(16,2)
-n.set_bit_pattern("0100010000000000")
-m.set_bit_pattern("0100011000000000")
-
-# print(n.to_float())
-# print(m.to_float())
-k = n + m
-k.print_bits(k.number)
-print(k.to_float())
+n = Posit(16,3)
+n.set_float(2.5234)
+print(n)
 # m = Posit(16,3)
