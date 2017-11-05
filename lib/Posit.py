@@ -179,25 +179,6 @@ class Posit:
 
         return value
 
-    def round(self, x, bits):
-        # impelementation of round to nearest even
-        if bits == 0:
-            return 0
-
-        n = self.count_bits(x)
-        # rounding needs to be done
-        
-        if bits < n:
-            # overflown bits
-            overflown = x & (2**(n-bits) - 1)
-            # remove if overflown bits
-            x -= overflown
-            # check if round up
-            if overflown > 2**(n-bits-1):
-                x = x + 2**(n-bits)
-            
-        return x
-
     # multiply two posits
     def __mul__(self, other):
         # decode self
@@ -222,8 +203,7 @@ class Posit:
     
     def construct_posit(self, sign, scale, fraction):
         n = 0
-
-        # resulting regime value
+        # resulting regime value-
         regime = scale // 2**self.es
         # resulting regime 
         exponent = scale - regime * 2**self.es
@@ -252,33 +232,36 @@ class Posit:
         exponent_bits = min(self.es, self.nbits - 1 - regime_length)
         fraction_bits = max(0, self.nbits - 1 - regime_length - self.es)
         
-        # round results
-        exponent = self.round(exponent, exponent_bits)
-
-        # round, +1 is for hidden bit
-        fraction = self.round(fraction, fraction_bits+1)
-
-        # truncate fraction after rounding
+        # truncate fraction
         while fraction % 2 == 0 and fraction > 0:
             fraction //= 2
 
         # length of fraction bits, -1 is for hidden bit
-        fraction_length = self.count_bits(fraction) - 1
+        fraction_length = self.count_bits(fraction) - 1     
         # remove hidden bit
         fraction &= 2**(self.count_bits(fraction)-1) - 1
         
+        # concatenate exponent + fraction
+        exp_frac = (exponent << (fraction_length)) | fraction
+        # count trailing bits
+        trailing_bits = self.nbits - 1 - regime_length
+
+        exp_frac_bits = self.count_bits(exp_frac)
         
-        
-        # encode exponent
-        exponent_bits = min(self.es, self.nbits - 1 - regime_length)
-        n |= exponent << (self.nbits - 1 - regime_length - exponent_bits)
-        self.print_bits(n)
-        # encode fraction
-        n |= fraction << (self.nbits - 1 - regime_length - exponent_bits - fraction_length)
+        # rounding needs to be done
+        if trailing_bits < exp_frac_bits:
+            # get overflow
+            overflown = exp_frac & (2**(exp_frac_bits - trailing_bits) - 1)
+            # truncate trailing bits, encode to number
+            n |= trailing_bits >> (exp_frac_bits - trailing_bits)
+            # perform round to even rounding by adding last bit to overflown bit
+            if overflown >= 2**(exp_frac_bits-trailing_bits-1):
+                n += 2**(exp_frac_bits-trailing_bits)
+        else:
+            n |= 2**(trailing_bits - exp_frac_bits)
+
         p = Posit(self.nbits, self.es)
         p.set_bit_pattern(n)
-        self.print_bits(n)
-
         return p
 
     def print_bits(self, n):
@@ -317,15 +300,23 @@ class Posit:
         # compute total scale factor
         scale_a = 2**self.es * regime_a + exponent_a
         scale_b = 2**self.es * regime_b + exponent_b
-        scale_c = min(scale_a, scale_b) + 1
-        diff = scale_a - scale_b
+        scale_c = max(scale_a, scale_b)
+        diff = scale_a - scale_b 
+
         if diff >= 0:
-            fraction_b *= 2**abs(diff)
-        else:
             fraction_a *= 2**abs(diff)
+            fraction_length = self.count_bits(fraction_a)
+        else:
+            fraction_b *= 2**abs(diff)
+            fraction_length = self.count_bits(fraction_b)
         
         # get fraction
         fraction_c = fraction_a + fraction_b
+
+        # check for carry bit
+        if self.count_bits(fraction_c) > fraction_length:
+            scale_c += 1
+        
         
         # construct posit then return
         return self.construct_posit(0, scale_c, fraction_c)
@@ -370,7 +361,13 @@ class Posit:
         p.set_bit_pattern(twos_complement(self.number))
         return p
 
-n = Posit(16,3)
-n.set_float(2.5234)
+n = Posit(10,2)
+m = Posit(10,2)
+
+n.set_bit_pattern("0000100110")
+m.set_bit_pattern("0000101110")
 print(n)
+print(m)
+print(n+m)
+#(n+m).print_bits(((n+m).number))
 # m = Posit(16,3)
