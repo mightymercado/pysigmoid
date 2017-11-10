@@ -1,6 +1,5 @@
-def twosComplement(n, bits):
-    if (n & (1 << (bits - 1))) != 0: 
-        n = n - (1 << bits)
+def twosComplement(n, bits): 
+    n = (1 << bits) - n
     return n
 
 def onesComplement(n, bits):
@@ -16,11 +15,17 @@ def ceilLog2(n):
     x = lastSetBit(n)
     return x+int(n!=1<<x)
 
+def floorLog2(n):
+    return (countBits(n) - 1)
+
 def nextPowerOfTwo(n):
     return 1 << ceilLog2(n)
 
 def setBit(n, i):
     return n | (1<<i)
+
+def unsetBit(n, i):
+    return (n | (1 << i)) ^ (1 << i)
 
 def checkBit(n, i):
     return (n >> i) & 1 
@@ -63,4 +68,17 @@ def align(a, b):
         b <<= (a_length - b_length)
     elif a_length < b_length:
         a <<= (b_length - a_length)
+    trailing_a = countTrailingZeroes(a)
+    trailing_b = countTrailingZeroes(b)
+    a >>= min(trailing_a, trailing_b)
+    b >>= min(trailing_a, trailing_b)
     return (a, b)
+
+def floorLog2FivePow(x):
+    # works for 1 <= x <= 100
+    # https://stackoverflow.com/questions/47229444/how-to-compute-floorlog25x-without-floating-point-arithmetic-or-long-integ/47229742#47229742
+    log2_5 = 23219281
+    scale = 10000000
+    result = x * log2_5
+    output = result // scale
+

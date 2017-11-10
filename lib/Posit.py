@@ -58,6 +58,22 @@ class Posit:
         else:
             raise "Not integer"
 
+    def set_string(self, x):
+        if type(x) == str:
+            dot_index = x.find('.')
+            if dot_index == -1:
+                self.set_int(int(x))
+            else:
+                # count number of fractional digits
+                fdig = len(x) - 1 - dot_index
+                # get fraction
+                fraction = int(x[:dot_index] + x[dot_index+1:])
+                exponent = BitUtils.countBits(fraction) - 1 - fdig
+                five = 5**fdig
+                self.number = (self.construct_posit(0, exponent, fraction) / self.construct_posit(0, five.bit_length() - 1, five)).number
+        else:
+            return "Not string"
+        
     def is_valid(self):
         # check if a number is a valid posit of nbits
         return 0 <= self.number and self.number < self.npat
@@ -87,15 +103,20 @@ class Posit:
             return self
         elif other.number == 0 or other.number == self.inf:
             return other
-                
-        sign_a, regime_a, exponet_a, fraction_a = self.decode()
-        sign_b, regime_b, exponet_b, fraction_b = other.decode()
+
+        sign_a, regime_a, exponent_a, fraction_a = self.decode()
+        sign_b, regime_b, exponent_b, fraction_b = other.decode()
 
         sign_c = sign_a * sign_b
 
         # compute total scale factor
         scale_c =  (2**self.es * (regime_a + regime_b) + exponent_a + exponent_b)
         fraction_c = fraction_a * fraction_b
+        fa = BitUtils.floorLog2(fraction_a)
+        fb = BitUtils.floorLog2(fraction_b)
+        fc = BitUtils.floorLog2(fraction_c)
+        if fc > fa + fb:
+            scale_c += 1
 
         # construct posit then return
         return self.construct_posit(sign_c, scale_c, fraction_c)
@@ -125,10 +146,9 @@ class Posit:
         # count number of bits available for exponent and fraction
         exponent_bits = min(self.es, self.nbits - 1 - regime_length)
         fraction_bits = self.nbits - 1 - regime_length - exponent_bits
-        
+      
         # remove trailing zeroes
         fraction = BitUtils.removeTrailingZeroes(fraction)
-
         # length of fraction bits, -1 is for hidden bit
         fraction_length = BitUtils.countBits(fraction) - 1
         
@@ -137,7 +157,6 @@ class Posit:
 
         # trailing_bits = number of bits available for exponent + fraction
         trailing_bits = self.nbits - 1 - regime_length
-
         # exp_frac = concatenate exponent + fraction without trailing zeroes
         exp_frac = BitUtils.removeTrailingZeroes(exponent << (fraction_length) | fraction)
         
@@ -238,7 +257,7 @@ class Posit:
 
     def get_reciprocal(self):
         r = Posit(self.nbits, self.es)
-        r.number = BitUtils.setBit(BitUtils.twosComplement(self.number, self.nbits), self.nbits - 1)
+        r.number = BitUtils.unsetBit(BitUtils.twosComplement(self.number, self.nbits), self.nbits - 1)
         return r
 
     def decode(self):
@@ -277,7 +296,39 @@ class Posit:
         return (sign, regime, exponent, fraction)
 
     def __truediv__(self, other):
-        return self * other.get_reciprocal()
+        # this algorithm is not yet hardware friendly
+        fraction = other.decode()[3] 
+        # reciprocation is accurate for powers of two
+        if fraction & (fraction - 1) ==  0:
+            return self * other.get_reciprocal()
+
+        if self.number == 0 or self.number == self.inf:
+            return self
+        elif other.number == 0 or other.number == self.inf:
+            return self.inf
+
+        sign_a, regime_a, exponent_a, fraction_a = self.decode()
+        sign_b, regime_b, exponent_b, fraction_b = other.decode()
+
+        sign_c = sign_a * sign_b
+
+        # compute total scale factor
+        scale_c =  (2**self.es * (regime_a - regime_b) + exponent_a - exponent_b)
+        fraction_a, fraction_b = BitUtils.align(fraction_a, fraction_b)
+        if fraction_a < fraction_b:
+            fraction_a <<= 256
+        elif fraction_a >= fraction_b:
+            fraction_b <<= 256
+
+        fraction_c = fraction_a // fraction_b
+        fa = BitUtils.floorLog2(fraction_a)
+        fb = BitUtils.floorLog2(fraction_b)
+        fc = BitUtils.floorLog2(fraction_c)
+        if fa - fb > fc:
+            scale_c -= 1
+            
+        # construct posit then return
+        return self.construct_posit(sign_c, scale_c, fraction_c)
 
     def __neg__(self):
         # negate a number
@@ -290,6 +341,17 @@ class Posit:
 
 from random import randint
 
-p = Posit(64,3)  
-p.set_int(1020921231232)
-print(p)
+p = Posit(64,3)
+
+for i in range(1,1000):
+    x = randint(1,100000)
+    y = randint(2,100000)
+    z = x / y
+    px = Posit(64, 3)
+    py = Posit(64, 3)
+    pz = Posit(64, 3)
+    px.set_int(x)
+    py.set_int(y)
+    pz = x / y
+    print(z)
+    print(pz)
