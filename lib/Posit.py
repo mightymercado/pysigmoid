@@ -85,7 +85,7 @@ class Posit:
     def to_signed_int(self, x):
         sign = self.get_sign_bit(self.number)
         if sign == 1:
-            x = - twos_complement(x)
+            x = - BitUtils.twosComplement(x, self.nbits)
         return x
 
     def __gt__(self, other):
@@ -284,8 +284,8 @@ class Posit:
             regime_length = self.nbits - BitUtils.lastUnsetBit(x) - 1
         
         # determine lengths
-        exponent_length = min(self.es, self.nbits - 1 - regime_length)
-        fraction_length = self.nbits - 1 - regime_length - exponent_length
+        exponent_length = max(0, min(self.es, self.nbits - 1 - regime_length))
+        fraction_length = max(0, self.nbits - 1 - regime_length - exponent_length)
         
         # determine actual values
         regime = - regime_length + 1 if regime_sign == 0 else regime_length - 2
@@ -337,21 +337,30 @@ class Posit:
         return p
 
     def __sqrt__(self):
-        return None
+        # let do binary search haha
+        low = 0
+        high = self.maxpos
+
+        for i in range(1000):
+            m = (low + high) // 2
+            p = Posit(self.nbits, self.es)
+            p.set_bit_pattern(m)
+            ll = Posit(self.nbits, self.es)
+            hh = Posit(self.nbits, self.es)
+            ll.set_bit_pattern(low)
+            hh.set_bit_pattern(high)
+            r = p * p
+            if r == self:
+                return p
+            elif r < self:
+                low = m + 1
+            else:
+                high = m - 1
+        return p
 
 from random import randint
 
-p = Posit(64,3)
-
-for i in range(1,1000):
-    x = randint(1,100000)
-    y = randint(2,100000)
-    z = x / y
-    px = Posit(64, 3)
-    py = Posit(64, 3)
-    pz = Posit(64, 3)
-    px.set_int(x)
-    py.set_int(y)
-    pz = x / y
-    print(z)
-    print(pz)
+p = Posit(32, 3)
+p.set_float(0.5)
+r = p.__sqrt__()
+print(r*r)
