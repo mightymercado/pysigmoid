@@ -126,7 +126,7 @@ class Posit:
         fc = BitUtils.floorLog2(fraction_c)
 
         # adjust based on carry
-        scale_c += fc - fa + fb
+        scale_c += fc - fa - fb
 
         # construct posit then return
         return self.construct_posit(sign_c, scale_c, fraction_c)
@@ -219,7 +219,7 @@ class Posit:
 
         sign_a, regime_a, exponent_a, fraction_a = self.decode()
         sign_b, regime_b, exponent_b, fraction_b = other.decode()
-
+        
         # align fraction bits
         fraction_a, fraction_b = BitUtils.align(fraction_a, fraction_b)
 
@@ -227,7 +227,7 @@ class Posit:
         scale_a = 2**self.es * regime_a + exponent_a
         scale_b = 2**self.es * regime_b + exponent_b
         scale_c = max(scale_a, scale_b) 
-
+        
         # shift fraction bits 
         if scale_a > scale_b:
             fraction_a <<= scale_a - scale_b
@@ -370,8 +370,20 @@ class Posit:
     def __repr__(self):
         return self.__str__()
 
-x = "52.2"
-y = "35.3"
-x,y=y,x
-print(Posit(number=x)-Posit(number=y))
-print(float(x) - float(y))
+class Quire:
+    def __init__(qsize):
+        self.qsize = qsize
+
+    def fused_add_multiply(self, a, b, c):
+        #(a + b)×c
+        return None
+
+    def fused_multiply_multiply_subtract(self, a, b, c, d):
+        # (a×b) - (c×d)
+        return None
+
+    def fused_sum(self, a):
+        return None
+
+    def fused_dot_product(self, a, b):
+        return None
