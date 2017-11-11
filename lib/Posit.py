@@ -30,7 +30,6 @@ class Posit:
             self.set_float(number)
         elif type(number) == int:
             self.set_int(number)
-
         
     def float_to_int(self, n):
         return c_ulonglong.from_buffer(c_double(n)).value
@@ -200,8 +199,11 @@ class Posit:
             n |= exp_frac << (trailing_bits - exp_frac_bits)
             
         p = Posit(self.nbits, self.es)
-        p.set_bit_pattern(n)
-        
+        if sign == 0:
+            p.set_bit_pattern(n)
+        else:
+            p.set_bit_pattern(BitUtils.twosComplement(n, self.nbits))
+
         return p
 
     def __sub__(self, other):
