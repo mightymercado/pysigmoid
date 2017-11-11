@@ -81,4 +81,3 @@ def floorLog2FivePow(x):
     scale = 10000000
     result = x * log2_5
     output = result // scale
-

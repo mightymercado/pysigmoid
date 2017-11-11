@@ -5,7 +5,7 @@ from ctypes import c_ulonglong, c_double
 import BitUtils
 
 class Posit:
-    def __init__(self, nbits = 32, es = 3, number = 0):
+    def __init__(self, nbits = 64, es = 3, number = 0):
         self.number = 0
         # number of bits
         self.nbits = nbits
@@ -125,8 +125,9 @@ class Posit:
         fa = BitUtils.floorLog2(fraction_a)
         fb = BitUtils.floorLog2(fraction_b)
         fc = BitUtils.floorLog2(fraction_c)
-        if fc > fa + fb:
-            scale_c += 1
+
+        # adjust based on carry
+        scale_c += fc - fa + fb
 
         # construct posit then return
         return self.construct_posit(sign_c, scale_c, fraction_c)
@@ -203,6 +204,8 @@ class Posit:
         
         return p
 
+    def __sub__(self, other):
+        return self.__add__(other.__neg__())
 
     def __add__(self, other):
         if self.number == 0:
@@ -218,7 +221,6 @@ class Posit:
         # align fraction bits
         fraction_a, fraction_b = BitUtils.align(fraction_a, fraction_b)
 
-        
         # compute total scale factor
         scale_a = 2**self.es * regime_a + exponent_a
         scale_b = 2**self.es * regime_b + exponent_b
@@ -227,22 +229,26 @@ class Posit:
         # shift fraction bits 
         if scale_a > scale_b:
             fraction_a <<= scale_a - scale_b
-            fraction_length = BitUtils.countBits(fraction_a)
-        elif scale_a < scale_b:
+            estimated_length = BitUtils.countBits(fraction_a)
+        elif scale_a <= scale_b:
             fraction_b <<= scale_b - scale_a
-            fraction_length = BitUtils.countBits(fraction_b)
-        
-        # get fraction
-        fraction_c = fraction_a + fraction_b
+            estimated_length = BitUtils.countBits(fraction_b)
 
-        # check for carry bit
-        if BitUtils.countBits(fraction_c) > fraction_length:
-            scale_c += 1
+        # get fraction
+        fraction_c = (-1)**sign_a * fraction_a + (-1)**sign_b * fraction_b
+        sign_c = int(fraction_c < 0)
+        fraction_c = abs(fraction_c)
         
+        # check for carry bit
+        result_length = BitUtils.countBits(fraction_c)
+        scale_c += result_length - estimated_length
         fraction_c = BitUtils.removeTrailingZeroes(fraction_c)
+
+        if fraction_c == 0:
+            return Posit(self.nbits, self.es, "0")
         
         # construct posit then return
-        return self.construct_posit(0, scale_c, fraction_c)
+        return self.construct_posit(sign_c, scale_c, fraction_c)
 
     def get_value(self):
         if self.number == 0:
@@ -323,13 +329,12 @@ class Posit:
         fraction_a, fraction_b = BitUtils.align(fraction_a, fraction_b)
         fraction_a <<= self.nbits
         fraction_c = fraction_a // fraction_b
-
         fa = BitUtils.floorLog2(fraction_a)
         fb = BitUtils.floorLog2(fraction_b)
         fc = BitUtils.floorLog2(fraction_c)
         
-        if fa - fb > fc:
-            scale_c -= 1
+        # adjust exponent
+        scale_c -= fa - fb - fc
             
         # construct posit then return
         return self.construct_posit(sign_c, scale_c, fraction_c)
@@ -337,7 +342,7 @@ class Posit:
     def __neg__(self):
         # negate a number
         p = Posit(self.nbits, self.es)
-        p.set_bit_pattern(twos_complement(self.number))
+        p.set_bit_pattern(BitUtils.twosComplement(self.number, self.nbits))
         return p
 
     def __sqrt__(self):
@@ -363,6 +368,8 @@ class Posit:
     def __repr__(self):
         return self.__str__()
 
-p3 = Posit(32, 3)
-p3.set_string("1.2")
-print(p3)
+x = "52.2"
+y = "35.3"
+x,y=y,x
+print(Posit(number=x)-Posit(number=y))
+print(float(x) - float(y))
