@@ -76,3 +76,4 @@ test_method("Posit.decode", make_posit_from_bit_pattern, "decode", [
     ((8, "0000000"), None),
     ((8, "1000000"), None)
 ])
+

@@ -5,7 +5,7 @@ from ctypes import c_ulonglong, c_double
 import BitUtils
 
 class Posit:
-    def __init__(self, nbits, es):
+    def __init__(self, nbits = 32, es = 3, number = 0):
         self.number = 0
         # number of bits
         self.nbits = nbits
@@ -24,6 +24,13 @@ class Posit:
         # extra bits for worst-case summations that produce carry bits
         self.qextra = self.qsize - (nbits - 2) * 2**(es + 2)
         self.inf = 2**(nbits - 1)
+        if type(number) == str:
+            self.set_string(number)
+        elif type(number) == float:
+            self.set_float(number)
+        elif type(number) == int:
+            self.set_int(number)
+
         
     def float_to_int(self, n):
         return c_ulonglong.from_buffer(c_double(n)).value
@@ -51,10 +58,13 @@ class Posit:
 
     def set_int(self, x):
         if type(x) == int:
-            sign = 0 if x >= 0 else 1
-            exponent = BitUtils.countBits(x) - 1
-            fraction = x
-            self.number = self.construct_posit(sign, exponent, fraction).number
+            if x == 0:
+                self.number = 0
+            else:
+                sign = 0 if x >= 0 else 1
+                exponent = BitUtils.countBits(x) - 1
+                fraction = x
+                self.number = self.construct_posit(sign, exponent, fraction).number
         else:
             raise "Not integer"
 
@@ -141,7 +151,7 @@ class Posit:
         if regime >= 0:
             n |= BitUtils.createMask(regime_length - 1, self.nbits - regime_length)
         else:
-            n = BitUtils.setBit(n, self.nbits - 1 - regime_length)
+            n |= BitUtils.setBit(n, self.nbits - 1 - regime_length)
 
         # count number of bits available for exponent and fraction
         exponent_bits = min(self.es, self.nbits - 1 - regime_length)
@@ -151,7 +161,6 @@ class Posit:
         fraction = BitUtils.removeTrailingZeroes(fraction)
         # length of fraction bits, -1 is for hidden bit
         fraction_length = BitUtils.countBits(fraction) - 1
-        
         # remove hidden bit
         fraction &= 2**(BitUtils.countBits(fraction)-1) - 1
 
@@ -178,7 +187,7 @@ class Posit:
             # tie-breaking
             if overflown == (1 << (exp_frac_bits - trailing_bits - 1)):
                 # check last bit
-                if BitUtils.checkBit(exp_frac, exp_frac_bits - trailing_bits - 2):
+                if BitUtils.checkBit(exp_frac, exp_frac_bits - trailing_bits):
                     n += 1
             # round to next higher value
             elif overflown > (1 << (exp_frac_bits - trailing_bits - 1)):
@@ -203,35 +212,33 @@ class Posit:
         elif self.number == self.inf or other.number == self.inf:
             return self.inf
 
-        sign_a, regime_a, exponet_a, fraction_a = self.decode()
-        sign_b, regime_b, exponet_b, fraction_b = other.decode()
+        sign_a, regime_a, exponent_a, fraction_a = self.decode()
+        sign_b, regime_b, exponent_b, fraction_b = other.decode()
 
         # align fraction bits
         fraction_a, fraction_b = BitUtils.align(fraction_a, fraction_b)
 
-        # fraction length 
-        fraction_length = BitUtils.countBits(fraction_a)
-
+        
         # compute total scale factor
         scale_a = 2**self.es * regime_a + exponent_a
         scale_b = 2**self.es * regime_b + exponent_b
-
-        scale_c = max(scale_a, scale_b)
-        diff = scale_a - scale_b 
+        scale_c = max(scale_a, scale_b) 
 
         # shift fraction bits 
         if scale_a > scale_b:
-            fraction_a <<= scale_b - scale_a
+            fraction_a <<= scale_a - scale_b
+            fraction_length = BitUtils.countBits(fraction_a)
         elif scale_a < scale_b:
-            fraction_b <<= scale_a - scale_b
-
+            fraction_b <<= scale_b - scale_a
+            fraction_length = BitUtils.countBits(fraction_b)
+        
         # get fraction
         fraction_c = fraction_a + fraction_b
 
         # check for carry bit
         if BitUtils.countBits(fraction_c) > fraction_length:
             scale_c += 1
-
+        
         fraction_c = BitUtils.removeTrailingZeroes(fraction_c)
         
         # construct posit then return
@@ -309,21 +316,18 @@ class Posit:
 
         sign_a, regime_a, exponent_a, fraction_a = self.decode()
         sign_b, regime_b, exponent_b, fraction_b = other.decode()
-
         sign_c = sign_a * sign_b
 
         # compute total scale factor
         scale_c =  (2**self.es * (regime_a - regime_b) + exponent_a - exponent_b)
         fraction_a, fraction_b = BitUtils.align(fraction_a, fraction_b)
-        if fraction_a < fraction_b:
-            fraction_a <<= 256
-        elif fraction_a >= fraction_b:
-            fraction_b <<= 256
-
+        fraction_a <<= self.nbits
         fraction_c = fraction_a // fraction_b
+
         fa = BitUtils.floorLog2(fraction_a)
         fb = BitUtils.floorLog2(fraction_b)
         fc = BitUtils.floorLog2(fraction_c)
+        
         if fa - fb > fc:
             scale_c -= 1
             
@@ -337,30 +341,28 @@ class Posit:
         return p
 
     def __sqrt__(self):
+        # TODO: Rounding
         # let do binary search haha
         low = 0
         high = self.maxpos
 
-        for i in range(1000):
+        # convergence at log(number_of_bit_patterns)
+        for i in range(self.nbits):
             m = (low + high) // 2
             p = Posit(self.nbits, self.es)
             p.set_bit_pattern(m)
-            ll = Posit(self.nbits, self.es)
-            hh = Posit(self.nbits, self.es)
-            ll.set_bit_pattern(low)
-            hh.set_bit_pattern(high)
             r = p * p
             if r == self:
                 return p
             elif r < self:
-                low = m + 1
+                low = m
             else:
-                high = m - 1
+                high = m
         return p
 
-from random import randint
+    def __repr__(self):
+        return self.__str__()
 
-p = Posit(32, 3)
-p.set_float(0.5)
-r = p.__sqrt__()
-print(r*r)
+p3 = Posit(32, 3)
+p3.set_string("1.2")
+print(p3)
