@@ -370,6 +370,10 @@ class Posit:
     def __repr__(self):
         return self.__str__()
 
+    def sigmoid(self):
+        self.number = BitUtils.toggleBit(self.number, self.nbits-1)
+        self.number = self.number >> 2
+
 class Quire:
     def __init__(qsize):
         self.qsize = qsize
@@ -387,3 +391,22 @@ class Quire:
 
     def fused_dot_product(self, a, b):
         return None
+
+from plotly.offline import plot, iplot
+from plotly.graph_objs import Scatter, Figure, Layout
+
+y = []
+x = list(range(-100,101))
+for i in x:
+    p = Posit(64, 0, i)
+    p.sigmoid()
+    y.append(float(p.get_value()))
+
+N = len(x)
+
+# Create a trace
+trace = Scatter(
+    x = x,
+    y = y
+)
+plot([trace], filename='basic-line.html')
