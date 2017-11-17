@@ -61,6 +61,8 @@ class Posit:
                 self.number = 0
             else:
                 sign = 0 if x >= 0 else 1
+                if sign == 1:
+                    x = abs(x)
                 exponent = BitUtils.countBits(x) - 1
                 fraction = x
                 self.number = self.construct_posit(sign, exponent, fraction).number
@@ -70,16 +72,19 @@ class Posit:
     def set_string(self, x):
         if type(x) == str:
             dot_index = x.find('.')
+            sign = int(x[0] == "-")
             if dot_index == -1:
                 self.set_int(int(x))
             else:
+                if sign == 1:
+                    x = x[1:]
                 # count number of fractional digits
                 fdig = len(x) - 1 - dot_index
                 # get fraction
                 fraction = int(x[:dot_index] + x[dot_index+1:])
                 exponent = BitUtils.countBits(fraction) - 1 - fdig
                 five = 5**fdig
-                self.number = (self.construct_posit(0, exponent, fraction) / self.construct_posit(0, five.bit_length() - 1, five)).number
+                self.number = (self.construct_posit(sign, exponent, fraction) / self.construct_posit(0, five.bit_length() - 1, five)).number
         else:
             return "Not string"
         
@@ -115,8 +120,7 @@ class Posit:
 
         sign_a, regime_a, exponent_a, fraction_a = self.decode()
         sign_b, regime_b, exponent_b, fraction_b = other.decode()
-
-        sign_c = sign_a * sign_b
+        sign_c = sign_a ^ sign_b
 
         # compute total scale factor
         scale_c =  (2**self.es * (regime_a + regime_b) + exponent_a + exponent_b)
@@ -324,12 +328,12 @@ class Posit:
 
         sign_a, regime_a, exponent_a, fraction_a = self.decode()
         sign_b, regime_b, exponent_b, fraction_b = other.decode()
-        sign_c = sign_a * sign_b
+        sign_c = sign_a ^ sign_b
 
         # compute total scale factor
         scale_c =  (2**self.es * (regime_a - regime_b) + exponent_a - exponent_b)
         fraction_a, fraction_b = BitUtils.align(fraction_a, fraction_b)
-        fraction_a <<= self.nbits
+        fraction_a <<= self.nbits * 4
         fraction_c = fraction_a // fraction_b
         fa = BitUtils.floorLog2(fraction_a)
         fb = BitUtils.floorLog2(fraction_b)
@@ -392,21 +396,3 @@ class Quire:
     def fused_dot_product(self, a, b):
         return None
 
-from plotly.offline import plot, iplot
-from plotly.graph_objs import Scatter, Figure, Layout
-
-y = []
-x = list(range(-100,101))
-for i in x:
-    p = Posit(64, 0, i)
-    p.sigmoid()
-    y.append(float(p.get_value()))
-
-N = len(x)
-
-# Create a trace
-trace = Scatter(
-    x = x,
-    y = y
-)
-plot([trace], filename='basic-line.html')
