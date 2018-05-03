@@ -1,10 +1,11 @@
-from math import ceil, log
+from math import *
 from fractions import Fraction
 from decimal import Decimal, getcontext
 from ctypes import c_ulonglong, c_double
 import BitUtils
+from FixedPoint import *
 
-class Posit:
+class Posit(object):
     def __init__(self, nbits = 64, es = 3, number = 0):
         self.number = 0
         # number of bits
@@ -24,6 +25,7 @@ class Posit:
         # extra bits for worst-case summations that produce carry bits
         self.qextra = self.qsize - (nbits - 2) * 2**(es + 2)
         self.inf = 2**(nbits - 1)
+        self.zero = 0
         if type(number) == str:
             self.set_string(number)
         elif type(number) == float:
@@ -32,30 +34,72 @@ class Posit:
             self.set_int(number)
         
     def float_to_int(self, n):
-        return c_ulonglong.from_buffer(c_double(n)).value
+        '''
+            Input: Float
+            Returns the equivalent integer bit pattern of the 64-bit float
+        '''
+        if type(n) == float:
+            return c_ulonglong.from_buffer(c_double(n)).value
+        else:
+            raise "Not float"
 
     def set_bit_pattern(self, x):
-        # given a strings of 0's and 1's, set the Posit to that value
-        if type(x) == str and len(x) == self.nbits:
-            self.number = int(x, 2)
-        elif self.nbits >= BitUtils.countBits(x):
-            self.number = x
+        '''
+            Input: String of 1's and 0's of length at most nbits
+            Sets the number to a bit pattern
+        '''
+        if type(x) == str:
+            if count(x, 1) + count(x, 0) == len(x):
+                if len(x) <= self.nbits:
+                    self.number = int(x, 2)
+                else:
+                    raise "String length exceeds number of bits"
+            else:
+                raise "String must contain only 1 and 0's"
+        elif type(x) == int:
+            if BitUtils.countBits(x) <= self.nbits:
+                self.number = x
+            else:
+                raise "Integer exceeds number of bits"
+        else:
+            raise "Not string or int"
 
     def set_float(self, x):
-        # 64-bit floating point
+        '''
+            Input: Float
+            Map float to posit
+            Cases -> Action
+                (1) negative or positive zero -> return zero posit
+                (2) +-inf or NaN -> return posit infinity
+                (3) normal float -> round to nearest representable posit
+        '''
         if type(x) == float:
+            # (1) negative or positive zero -> return zero posit 
             if x == 0:
-                self.number = 0
+                self.number = self.zero
+            # (2) +-inf or NaN -> return posit infinity
+            elif isinf(x) or isnan(x):
+                self.number = self.inf
+            # (3) normal float
             else:
+                # convert to integer
                 n = self.float_to_int(x)
+                # to get sign bit, shift 63 times to the right
                 sign = n >> 63
-                exponent = ((n & (2**63-1)) >> 52) - 1023  # remove sign then shift
-                fraction = (2**52) + (n & (2**52-1))
+                # to get exponent bits, remove sign, shift, then subtract bias
+                exponent = ((n & ((1 << 63) - 1)) >> 52) - 1023  
+                # to get fractions bits, mask fraction bits and then OR the hidden bit
+                fraction = (1 << 52) | (n & ((1 << 52) - 1))
+                # given the decoded values, construct a posit
                 self.number = self.construct_posit(sign, exponent, fraction).number
         else:
             raise "Not Float"
 
     def set_int(self, x):
+        '''
+            Input: Integer
+            Returns nearest representable posit to the input integer
+        '''
         if type(x) == int:
             if x == 0:
                 self.number = 0
@@ -67,7 +111,7 @@ class Posit:
                 fraction = x
                 self.number = self.construct_posit(sign, exponent, fraction).number
         else:
-            raise "Not integer"
+            raise "Not an integer"
 
     def set_string(self, x):
         if type(x) == str:
@@ -136,6 +180,8 @@ class Posit:
         return self.construct_posit(sign_c, scale_c, fraction_c)
     
     def construct_posit(self, sign, scale, fraction):
+        if fraction == 0:
+            return Posit(nbits = self.nbits, es = self.es, number = 0)
         n = 0
         # regime = floor(scale / self.es)
         regime = scale >> self.es
@@ -271,6 +317,20 @@ class Posit:
         getcontext().prec = 500
         return ((-1)**sign * Decimal(2)**Decimal(2**self.es * regime + exponent - n) * Decimal(f))
 
+    def get_fixed_point_binary(self):
+        family = FXfamily(n_bits = (4 * self.nbits - 8) * 2 ** self.es + 1 + 30, n_intbits = (2*self.nbits-4) + 1)
+        if self.number == 0:
+            return FXnum(0, family=family)
+        elif self.number == self.inf:
+            raise Exception("Cannot convert to fixed point")
+
+        sign, regime, exponent, fraction = self.decode() 
+
+        f = FXnum(fraction, family=family)
+        n = BitUtils.countBits(fraction) - 1
+
+        return ((-1)**sign * FXnum(2, family=family)**Decimal(2**self.es * regime + exponent - n) * FXnum(f, family = family))
+
     def __str__(self):
         return self.get_value().__str__()
 
@@ -351,7 +411,7 @@ class Posit:
         p.set_bit_pattern(BitUtils.twosComplement(self.number, self.nbits))
         return p
 
-    def __sqrt__(self):
+    def sqrt_binary_search(self):
         # TODO: Rounding
         # let do binary search haha
         low = 0
@@ -371,28 +431,17 @@ class Posit:
                 high = m
         return p
 
+    def sqrt_newton(self):
+        # guess = self.copy()
+        # two = Posit(nbits = self.nbits, es = self.es)
+        # two.set_int(2)
+        # while t - c/t >= epsilon*t:
+        #     t = (c / t + t) / two
+        # return t;
+
     def __repr__(self):
         return self.__str__()
 
     def sigmoid(self):
         self.number = BitUtils.toggleBit(self.number, self.nbits-1)
         self.number = self.number >> 2
-
-class Quire:
-    def __init__(qsize):
-        self.qsize = qsize
-
-    def fused_add_multiply(self, a, b, c):
-        #(a + b)×c
-        return None
-
-    def fused_multiply_multiply_subtract(self, a, b, c, d):
-        # (a×b) - (c×d)
-        return None
-
-    def fused_sum(self, a):
-        return None
-
-    def fused_dot_product(self, a, b):
-        return None
-
