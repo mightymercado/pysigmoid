@@ -3,7 +3,7 @@ from math import *
 from fractions import Fraction
 from decimal import Decimal, getcontext
 from ctypes import c_ulonglong, c_double
-import BitUtils
+from .BitUtils import *
 from FixedPoint import *
 
 NBITS = None
@@ -68,7 +68,7 @@ class Posit(object):
             else:
                 raise "String must contain only 1 and 0's"
         elif type(x) == int:
-            if BitUtils.countBits(x) <= self.nbits:
+            if countBits(x) <= self.nbits:
                 self.number = x
             else:
                 raise "Integer exceeds number of bits"
@@ -118,7 +118,7 @@ class Posit(object):
                 sign = 0 if x >= 0 else 1
                 if sign == 1:
                     x = abs(x)
-                exponent = BitUtils.countBits(x) - 1
+                exponent = countBits(x) - 1
                 fraction = x
                 self.number = self.construct_posit(sign, exponent, fraction).number
         else:
@@ -141,7 +141,7 @@ class Posit(object):
                 fdig = len(x) - 1 - dot_index
                 # get fraction
                 fraction = int(x[:dot_index] + x[dot_index+1:])
-                exponent = BitUtils.countBits(fraction) - 1 - fdig
+                exponent = countBits(fraction) - 1 - fdig
                 five = 5**fdig
                 self.number = (self.construct_posit(sign, exponent, fraction) / self.construct_posit(0, five.bit_length() - 1, five)).number
         else:
@@ -158,7 +158,7 @@ class Posit(object):
     def to_signed_int(self, x):
         sign = self.get_sign_bit(self.number)
         if sign == 1:
-            x = - BitUtils.twosComplement(x, self.nbits)
+            x = - twosComplement(x, self.nbits)
         return x
 
     def __gt__(self, other):
@@ -185,9 +185,9 @@ class Posit(object):
         scale_c = (2**self.es * (regime_a + regime_b) + exponent_a + exponent_b)
         fraction_c = fraction_a * fraction_b
 
-        fa = BitUtils.floorLog2(fraction_a)
-        fb = BitUtils.floorLog2(fraction_b)
-        fc = BitUtils.floorLog2(fraction_c)
+        fa = floorLog2(fraction_a)
+        fb = floorLog2(fraction_b)
+        fc = floorLog2(fraction_c)
 
         # adjust based on carry
         scale_c += fc - fa - fb
@@ -202,7 +202,7 @@ class Posit(object):
         # regime = floor(scale / self.es)
         regime = scale >> self.es
         # exponent = scale % 2**es 
-        exponent = scale & BitUtils.createMask(self.es, 0)
+        exponent = scale & createMask(self.es, 0)
 
         # number of bits written for regime
         regime_length = regime + 2 if regime >= 0 else - regime + 1
@@ -215,30 +215,30 @@ class Posit(object):
 
         # encode regime
         if regime >= 0:
-            n |= BitUtils.createMask(regime_length - 1, self.nbits - regime_length)
+            n |= createMask(regime_length - 1, self.nbits - regime_length)
         else:
-            n |= BitUtils.setBit(n, self.nbits - 1 - regime_length)
+            n |= setBit(n, self.nbits - 1 - regime_length)
 
         # count number of bits available for exponent and fraction
         exponent_bits = min(self.es, self.nbits - 1 - regime_length)
         fraction_bits = self.nbits - 1 - regime_length - exponent_bits
       
         # remove trailing zeroes
-        fraction = BitUtils.removeTrailingZeroes(fraction)
+        fraction = removeTrailingZeroes(fraction)
         # length of fraction bits, -1 is for hidden bit
-        fraction_length = BitUtils.countBits(fraction) - 1
+        fraction_length = countBits(fraction) - 1
         # remove hidden bit
-        fraction &= 2**(BitUtils.countBits(fraction)-1) - 1
+        fraction &= 2**(countBits(fraction)-1) - 1
 
         # trailing_bits = number of bits available for exponent + fraction
         trailing_bits = self.nbits - 1 - regime_length
         # exp_frac = concatenate exponent + fraction without trailing zeroes
-        exp_frac = BitUtils.removeTrailingZeroes(exponent << (fraction_length) | fraction)
+        exp_frac = removeTrailingZeroes(exponent << (fraction_length) | fraction)
         
         # exp_frac_bits = minimum number of bits needed to represent exp_frac
         # exponent only
         if fraction_length == 0:
-            exp_frac_bits = self.es - BitUtils.countTrailingZeroes(exponent)
+            exp_frac_bits = self.es - countTrailingZeroes(exponent)
         # exponent plus fraction
         else:
             exp_frac_bits = self.es + fraction_length
@@ -246,14 +246,14 @@ class Posit(object):
         # rounding needs to be done
         if trailing_bits < exp_frac_bits:
             # get overflow bits
-            overflown = exp_frac & BitUtils.createMask(exp_frac_bits - trailing_bits, 0)
+            overflown = exp_frac & createMask(exp_frac_bits - trailing_bits, 0)
             # truncate trailing bits, encode to number
             n |= exp_frac >> (exp_frac_bits - trailing_bits)
             # perform round to even rounding by adding last bit to overflown bit
             # tie-breaking
             if overflown == (1 << (exp_frac_bits - trailing_bits - 1)):
                 # check last bit
-                if BitUtils.checkBit(exp_frac, exp_frac_bits - trailing_bits):
+                if checkBit(exp_frac, exp_frac_bits - trailing_bits):
                     n += 1
             # round to next higher value
             elif overflown > (1 << (exp_frac_bits - trailing_bits - 1)):
@@ -268,7 +268,7 @@ class Posit(object):
         if sign == 0:
             p.set_bit_pattern(n)
         else:
-            p.set_bit_pattern(BitUtils.twosComplement(n, self.nbits))
+            p.set_bit_pattern(twosComplement(n, self.nbits))
 
         return p
 
@@ -287,7 +287,7 @@ class Posit(object):
         sign_b, regime_b, exponent_b, fraction_b = other.decode()
         
         # align fraction bits
-        fraction_a, fraction_b = BitUtils.align(fraction_a, fraction_b)
+        fraction_a, fraction_b = align(fraction_a, fraction_b)
 
         # compute total scale factor
         scale_a = 2**self.es * regime_a + exponent_a
@@ -297,10 +297,10 @@ class Posit(object):
         # shift fraction bits 
         if scale_a > scale_b:
             fraction_a <<= scale_a - scale_b
-            estimated_length = BitUtils.countBits(fraction_a)
+            estimated_length = countBits(fraction_a)
         elif scale_a <= scale_b:
             fraction_b <<= scale_b - scale_a
-            estimated_length = BitUtils.countBits(fraction_b)
+            estimated_length = countBits(fraction_b)
 
         # get fraction
         fraction_c = (-1)**sign_a * fraction_a + (-1)**sign_b * fraction_b
@@ -308,9 +308,9 @@ class Posit(object):
         fraction_c = abs(fraction_c)
         
         # check for carry bit
-        result_length = BitUtils.countBits(fraction_c)
+        result_length = countBits(fraction_c)
         scale_c += result_length - estimated_length
-        fraction_c = BitUtils.removeTrailingZeroes(fraction_c)
+        fraction_c = removeTrailingZeroes(fraction_c)
 
         if fraction_c == 0:
             return Posit(nbits = self.nbits, es = self.es)
@@ -327,7 +327,7 @@ class Posit(object):
         sign, regime, exponent, fraction = self.decode() 
 
         f = Decimal(fraction)
-        n = BitUtils.countBits(fraction) - 1
+        n = countBits(fraction) - 1
 
         # 500 digits of precision
         getcontext().prec = 500
@@ -343,7 +343,7 @@ class Posit(object):
         sign, regime, exponent, fraction = self.decode() 
 
         f = FXnum(fraction, family=family)
-        n = BitUtils.countBits(fraction) - 1
+        n = countBits(fraction) - 1
 
         return ((-1)**sign * FXnum(2, family=family)**Decimal(2**self.es * regime + exponent - n) * FXnum(f, family = family))
 
@@ -357,7 +357,7 @@ class Posit(object):
 
     def get_reciprocal(self):
         r = Posit(nbits = self.nbits, es = self.es)
-        r.number = BitUtils.unsetBit(BitUtils.twosComplement(self.number, self.nbits), self.nbits - 1)
+        r.number = unsetBit(twosComplement(self.number, self.nbits), self.nbits - 1)
         return r
 
     def decode(self):
@@ -371,17 +371,17 @@ class Posit(object):
             return None
         
         # determine sign and decode
-        sign = BitUtils.checkBit(x, self.nbits - 1)
+        sign = checkBit(x, self.nbits - 1)
         
         if sign == 1:
-            x = BitUtils.twosComplement(x, self.nbits)
+            x = twosComplement(x, self.nbits)
 
         # decode regime length and regime sign
-        regime_sign = BitUtils.checkBit(x, self.nbits - 2) 
+        regime_sign = checkBit(x, self.nbits - 2) 
         if regime_sign == 0:
-            regime_length = self.nbits - BitUtils.lastSetBit(x) - 1
+            regime_length = self.nbits - lastSetBit(x) - 1
         else:
-            regime_length = self.nbits - BitUtils.lastUnsetBit(x) - 1
+            regime_length = self.nbits - lastUnsetBit(x) - 1
         
         # determine lengths
         exponent_length = max(0, min(self.es, self.nbits - 1 - regime_length))
@@ -389,9 +389,9 @@ class Posit(object):
         
         # determine actual values
         regime = - regime_length + 1 if regime_sign == 0 else regime_length - 2
-        exponent = BitUtils.extractBits(x, exponent_length, fraction_length) << (self.es - exponent_length)
+        exponent = extractBits(x, exponent_length, fraction_length) << (self.es - exponent_length)
         
-        fraction = BitUtils.removeTrailingZeroes(BitUtils.setBit(BitUtils.extractBits(x, fraction_length, 0), fraction_length))
+        fraction = removeTrailingZeroes(setBit(extractBits(x, fraction_length, 0), fraction_length))
 
         return (sign, regime, exponent, fraction)
 
@@ -413,12 +413,12 @@ class Posit(object):
 
         # compute total scale factor
         scale_c =  (2**self.es * (regime_a - regime_b) + exponent_a - exponent_b)
-        fraction_a, fraction_b = BitUtils.align(fraction_a, fraction_b)
+        fraction_a, fraction_b = align(fraction_a, fraction_b)
         fraction_a <<= self.nbits * 4
         fraction_c = fraction_a // fraction_b
-        fa = BitUtils.floorLog2(fraction_a)
-        fb = BitUtils.floorLog2(fraction_b)
-        fc = BitUtils.floorLog2(fraction_c)
+        fa = floorLog2(fraction_a)
+        fb = floorLog2(fraction_b)
+        fc = floorLog2(fraction_c)
         
         # adjust exponent
         scale_c -= fa - fb - fc
@@ -429,7 +429,7 @@ class Posit(object):
     def __neg__(self):
         # negate a number
         p = Posit(nbits = self.nbits, es = self.es)
-        p.set_bit_pattern(BitUtils.twosComplement(self.number, self.nbits))
+        p.set_bit_pattern(twosComplement(self.number, self.nbits))
         return p
 
     def sqrt_binary_search(self):
@@ -470,13 +470,13 @@ class Posit(object):
             total += mul * Quire(self.nbits, self.es, sign)
             mul = mul * x * x / Quire(self.nbits, self.es, (i + 1) * (i + 2))
             i += 1
-        return total.to_posit() # round
+        return totalQ.to_posit() # round
 
     def __repr__(self):
         return self.__str__()
 
     def sigmoid(self):
-        self.number = BitUtils.toggleBit(self.number, self.nbits-1)
+        self.number = toggleBit(self.number, self.nbits-1)
         self.number = self.number >> 2
 
-from Quire import *
+from .Quire import *

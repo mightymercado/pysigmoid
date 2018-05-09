@@ -80,4 +80,4 @@ class Quire(object):
     def fused_dot_product(self, a, b):
         return None
 
-from Posit import *
+from .Posit import *
