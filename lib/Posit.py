@@ -1,3 +1,4 @@
+from copy import *
 from math import *
 from fractions import Fraction
 from decimal import Decimal, getcontext
@@ -5,8 +6,22 @@ from ctypes import c_ulonglong, c_double
 import BitUtils
 from FixedPoint import *
 
+NBITS = None
+ES = None
+
+def set_posit_env(nbits, es):
+    global NBITS, ES
+    NBITS = nbits
+    ES = es
+
 class Posit(object):
-    def __init__(self, nbits = 64, es = 3, number = 0):
+    def __init__(self, number = 0, nbits = None, es = None):
+        if type(NBITS) is not int or type(ES) is not int:
+            raise Exception("Set posit envrionemnt first using set_posit_env(nbits, es)")
+        else:
+            nbits = NBITS
+            es = ES
+
         self.number = 0
         # number of bits
         self.nbits = nbits
@@ -20,10 +35,6 @@ class Posit(object):
         self.minpos = 1
         # maximum positive value
         self.maxpos = 2**(nbits - 1) - 1
-        # size of the quire register
-        self.qsize = BitUtils.nextPowerOfTwo((nbits - 2) * 2**(es+2)+5)
-        # extra bits for worst-case summations that produce carry bits
-        self.qextra = self.qsize - (nbits - 2) * 2**(es + 2)
         self.inf = 2**(nbits - 1)
         self.zero = 0
         if type(number) == str:
@@ -115,10 +126,14 @@ class Posit(object):
 
     def set_string(self, x):
         if type(x) == str:
+            if len(x) == 0:
+                return "Empty string"
             dot_index = x.find('.')
             sign = int(x[0] == "-")
             if dot_index == -1:
                 self.set_int(int(x))
+            elif dot_index == len(x) - 1:
+                self.set_int(int(x[:-1]))
             else:
                 if sign == 1:
                     x = x[1:]
@@ -167,8 +182,9 @@ class Posit(object):
         sign_c = sign_a ^ sign_b
 
         # compute total scale factor
-        scale_c =  (2**self.es * (regime_a + regime_b) + exponent_a + exponent_b)
+        scale_c = (2**self.es * (regime_a + regime_b) + exponent_a + exponent_b)
         fraction_c = fraction_a * fraction_b
+
         fa = BitUtils.floorLog2(fraction_a)
         fb = BitUtils.floorLog2(fraction_b)
         fc = BitUtils.floorLog2(fraction_c)
@@ -181,7 +197,7 @@ class Posit(object):
     
     def construct_posit(self, sign, scale, fraction):
         if fraction == 0:
-            return Posit(nbits = self.nbits, es = self.es, number = 0)
+            return Posit(nbits = self.nbits, es = self.es)
         n = 0
         # regime = floor(scale / self.es)
         regime = scale >> self.es
@@ -193,7 +209,7 @@ class Posit(object):
 
         # overflow to maxpos underflow to minpos
         if regime_length >= self.nbits:
-            p = Posit(self.nbits, self.es)
+            p = Posit(nbits = self.nbits, es = self.es)
             p.set_bit_pattern(self.maxpos if regime >= 0 else self.minpos)
             return p
 
@@ -248,7 +264,7 @@ class Posit(object):
         else:
             n |= exp_frac << (trailing_bits - exp_frac_bits)
             
-        p = Posit(self.nbits, self.es)
+        p = Posit(nbits = self.nbits, es = self.es)
         if sign == 0:
             p.set_bit_pattern(n)
         else:
@@ -297,7 +313,7 @@ class Posit(object):
         fraction_c = BitUtils.removeTrailingZeroes(fraction_c)
 
         if fraction_c == 0:
-            return Posit(self.nbits, self.es, "0")
+            return Posit(nbits = self.nbits, es = self.es)
         
         # construct posit then return
         return self.construct_posit(sign_c, scale_c, fraction_c)
@@ -331,11 +347,16 @@ class Posit(object):
 
         return ((-1)**sign * FXnum(2, family=family)**Decimal(2**self.es * regime + exponent - n) * FXnum(f, family = family))
 
+    def to_quire(self):
+        q = Quire(self.nbits, self.es, 0)
+        q.q = self.get_fixed_point_binary()
+        return q
+
     def __str__(self):
         return self.get_value().__str__()
 
     def get_reciprocal(self):
-        r = Posit(self.nbits, self.es)
+        r = Posit(nbits = self.nbits, es = self.es)
         r.number = BitUtils.unsetBit(BitUtils.twosComplement(self.number, self.nbits), self.nbits - 1)
         return r
 
@@ -407,20 +428,17 @@ class Posit(object):
 
     def __neg__(self):
         # negate a number
-        p = Posit(self.nbits, self.es)
+        p = Posit(nbits = self.nbits, es = self.es)
         p.set_bit_pattern(BitUtils.twosComplement(self.number, self.nbits))
         return p
 
     def sqrt_binary_search(self):
-        # TODO: Rounding
-        # let do binary search haha
         low = 0
         high = self.maxpos
-
-        # convergence at log(number_of_bit_patterns)
+        # convergence at log(number_of_bit_patterns) = nbits
         for i in range(self.nbits):
             m = (low + high) // 2
-            p = Posit(self.nbits, self.es)
+            p = Posit(nbits = self.nbits, es = self.es)
             p.set_bit_pattern(m)
             r = p * p
             if r == self:
@@ -432,12 +450,27 @@ class Posit(object):
         return p
 
     def sqrt_newton(self):
-        # guess = self.copy()
-        # two = Posit(nbits = self.nbits, es = self.es)
-        # two.set_int(2)
-        # while t - c/t >= epsilon*t:
-        #     t = (c / t + t) / two
-        # return t;
+        t = deepcopy(self)
+        two = Posit(nbits = self.nbits, es = self.es, number = 2)
+        while True:
+            nt = (self / t + t) / two
+            if t == nt:
+                break
+            t = nt
+        return t
+
+    def sin(self):
+        total = Quire(self.nbits, self.es, 0)
+        mul = self.to_quire()
+        x = self.to_quire()
+        sign = -1
+        i = 1
+        while mul.q != 0:
+            sign *= -1
+            total += mul * Quire(self.nbits, self.es, sign)
+            mul = mul * x * x / Quire(self.nbits, self.es, (i + 1) * (i + 2))
+            i += 1
+        return total.to_posit() # round
 
     def __repr__(self):
         return self.__str__()
@@ -445,3 +478,5 @@ class Posit(object):
     def sigmoid(self):
         self.number = BitUtils.toggleBit(self.number, self.nbits-1)
         self.number = self.number >> 2
+
+from Quire import *
