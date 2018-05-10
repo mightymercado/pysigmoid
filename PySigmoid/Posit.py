@@ -8,16 +8,16 @@ from FixedPoint import *
 
 global NBITS
 global ES
-NBITS = None
-ES = None
 
 def set_posit_env(nbits, es):
     global NBITS, ES
     NBITS = nbits
     ES = es
 
+
 class Posit(object):
     def __init__(self, number = 0, nbits = None, es = None):
+        global NBITS, ES
         if nbits != None and es != None:
             self.nbits = nbits
             self.es = es
@@ -182,6 +182,9 @@ class Posit(object):
         return self.number == other.number
 
     # multiply two posits
+        return self.number == other.number
+
+    # multiply two posits
     def __mul__(self, other):
         if self.number == 0 or self.number == self.inf:
             return self
@@ -286,6 +289,16 @@ class Posit(object):
     def __sub__(self, other):
         return self.__add__(other.__neg__())
 
+    def __abs__(self):
+        if self.number == 0:
+            return self
+        elif self.number == self.inf:
+            return self
+        elif self.get_sign_bit(self.number):
+            return self.__neg__()
+        else:
+            return self
+
     def __add__(self, other):
         if self.number == 0:
             return other
@@ -329,6 +342,9 @@ class Posit(object):
         # construct posit then return
         return self.construct_posit(sign_c, scale_c, fraction_c)
 
+    def __pow__(self, other):
+        return Posit(Quire(self)**Quire(other))
+
     def get_value(self):
         if self.number == 0:
             return "0"
@@ -358,7 +374,7 @@ class Posit(object):
 
         # exception values
         if x == 0:
-            return None
+            return (0, 0, 0, 0)
         elif x == self.inf:
             return None
         

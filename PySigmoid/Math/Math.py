@@ -1,65 +1,84 @@
 from copy import deepcopy
 
-def sqrt(x, algo = "newton"):
+# wrapped using FixedPoint arithmetic via Quire
+# tan, sqrt, sin, log, intpower, exp, cos, atan, asin, acos
+
+def sqrt(x):
     if type(x) != Posit:
         raise Exception("Argument must be posit")
-    if algo == "newton":
-        t = deepcopy(x)
-        two = Posit(nbits = x.nbits, es = x.es, number = 2)
-        while True:
-            nt = (x / t + t) / two
-            if t == nt:
-                break
-            t = nt
-        return t
-    elif algo == "bisection":
-        low = 0
-        high = x.maxpos
-        # convergence at log(number_of_bit_patterns) = nbits
-        for i in range(x.nbits):
-            m = (low + high) // 2
-            p = Posit(nbits = x.nbits, es = x.es)
-            p.set_bit_pattern(m)
-            r = p * p
-            if r == x:
-                return p
-            elif r < x:
-                low = m
-            else:
-                high = m
-        return p
-    else:
-        raise Exception("Invalid algo parameter")
-    return None
+    q = Quire(x)
+    q.q = q.q.sqrt()
+    return Posit(q)
 
-def sin(x, algo = "taylor"):
+def sin(x):
     if type(x) != Posit:
         raise Exception("Argument must be posit")
-    total = Quire(0, x.nbits, x.es)
-    mul = Quire(x)
-    y = Quire(x)
-    sign = -1
-    i = 1
-    iters = 0
-    eps = Posit(str(x.minpos)).get_value()
-    while mul.q > eps:
-        iters += 1
-        if iters > 1000:
-            break
-        sign *= -1
-        total += mul * Quire(sign, x.nbits, x.es)
-        print(mul)
-        mul = mul * (y * y / Quire(2 * i, x.nbits, x.es) / Quire(2 * i + 1, x.nbits, x.es))
-        i += 1
-    return Posit(total) # round
+    q = Quire(x)
+    q.q = q.q.sin()
+    return Posit(q)
 
-def cos(x, algo = "taylor"):
-    return None
+def cos(x):
+    if type(x) != Posit:
+        raise Exception("Argument must be posit")
+    q = Quire(x)
+    q.q = q.q.cos()
+    return Posit(q)
 
-def tan(x, algo = "taylor"):
-    return None
+def tan(x):
+    if type(x) != Posit:
+        raise Exception("Argument must be posit")
+    q = Quire(x)
+    q.q = q.q.tan()
+    return Posit(q)
 
-def csc(x, algo = "taylor"):
-    return None
+def asin(x):
+    if type(x) != Posit:
+        raise Exception("Argument must be posit")
+    q = Quire(x)
+    q.q = q.q.asin()
+    return Posit(q)
 
-from PySigmoid import Posit, Quire
+def acos(x):
+    if type(x) != Posit:
+        raise Exception("Argument must be posit")
+    q = Quire(x)
+    q.q = q.q.acos()
+    return Posit(q)
+
+def atan(x):
+    if type(x) != Posit:
+        raise Exception("Argument must be posit")
+    q = Quire(x)
+    q.q = q.q.atan()
+    return Posit(q)
+
+def log(x):
+    if type(x) != Posit:
+        raise Exception("Argument must be posit")
+    q = Quire(x)
+    q.q = q.q.log()
+    return Posit(q)
+
+def exp(x):
+    if type(x) != Posit:
+        raise Exception("Argument must be posit")
+    q = Quire(x)
+    q.q = q.q.exp()
+    return Posit(q)
+
+def pi(nbits, es):
+    # uses Bailey–Borwein–Plouffe formula
+    q = Quire(0, nbits = nbits, es = es)
+    q.q = q.family.pi
+    return Posit(q)
+
+def intpower(x):
+    if type(x) != Posit:
+        raise Exception("Argument must be posit")
+    q = Quire(x)
+    q.q = q.q.intpower()
+    return Posit(q)
+
+from PySigmoid import Quire, Posit
+from FixedPoint import *
+from copy import deepcopy

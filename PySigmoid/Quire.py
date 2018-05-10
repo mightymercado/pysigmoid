@@ -16,12 +16,11 @@ class Quire(object):
             self.nbits = NBITS
             self.es = ES
 
-        self.fraction_bits = (4 * self.nbits - 8) * 2 ** self.es + 1 + 30
-        self.integer_bits = (2 * self.nbits - 4) + 1
+        self.fraction_bits = (2 * self.nbits - 4) * 2 ** self.es + 1
+        self.integer_bits = (2 * self.nbits - 4) * 2 ** self.es + 1 + 30
 
         if type(number) == Posit:
-            self.family = FXfamily(n_bits = (4 * self.nbits - 8) * 2 ** self.es + 1 + 30, n_intbits = (2*self.nbits-4) + 1)
-        
+            self.family = FXfamily(n_bits = self.fraction_bits, n_intbits = self.integer_bits)
             if number.number == 0:
                 self.q = FXnum(0, family=self.family)
             elif number.number == number.inf:
@@ -80,6 +79,11 @@ class Quire(object):
         ret.q *= other.q
         return ret
 
+    def __pow__(self, other):
+        ret = deepcopy(self)
+        ret.q = ret.q**other.q
+        return ret
+
     def __truediv__(self, other):
         ret = deepcopy(self)
         ret.q /= other.q
@@ -103,4 +107,14 @@ class Quire(object):
     def fused_dot_product(self, a, b):
         return None
 
+    def reduce2PI(self):
+        sign = -1 if self.q.scaledval < 0 else 1
+        self.q.scaledval = abs(self.q.scaledval)
+        y = copy(self.q)
+        t = y / (2 * self.family.pi)
+        t.scaledval &= onesComplement((1 << self.fraction_bits) - 1, self.integer_bits + self.fraction_bits)
+        self.q = (y - t * (2 * self.family.pi))
+        self.q = sign * self.q
+
 from .Posit import *
+from .BitUtils import *
