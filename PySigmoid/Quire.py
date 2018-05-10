@@ -2,13 +2,42 @@ from copy import *
 from FixedPoint import *
 
 class Quire(object):
-    def __init__(self, nbits, es, number):
-        self.nbits = nbits
-        self.es = es
+    def __init__(self, number = 0, nbits = None, es = None):
+        global NBITS, ES
+        if nbits != None and es != None:
+            self.nbits = nbits
+            self.es = es
+        elif type(number) == Posit:
+            self.nbits = number.nbits
+            self.es = number.es
+        elif type(NBITS) is not int or type(ES) is not int:
+            raise Exception("Set posit envrionemnt first using set_posit_env(nbits, es)")
+        else:
+            self.nbits = NBITS
+            self.es = ES
+
         self.fraction_bits = (4 * self.nbits - 8) * 2 ** self.es + 1 + 30
         self.integer_bits = (2 * self.nbits - 4) + 1
-        self.family = FXfamily(n_bits = self.fraction_bits, n_intbits = self.integer_bits)
-        self.q = FXnum(val = number, family = self.family)
+
+        if type(number) == Posit:
+            self.family = FXfamily(n_bits = (4 * self.nbits - 8) * 2 ** self.es + 1 + 30, n_intbits = (2*self.nbits-4) + 1)
+        
+            if number.number == 0:
+                self.q = FXnum(0, family=self.family)
+            elif number.number == number.inf:
+                raise Exception("Cannot convert to fixed point")
+
+            sign, regime, exponent, fraction = number.decode() 
+
+            f = FXnum(fraction, family=self.family)
+            n = countBits(fraction) - 1
+
+            self.q = ((-1)**sign * FXnum(2, family=self.family)**Decimal(2**self.es * regime + exponent - n) * FXnum(f, family = self.family))
+        elif type(number) == int:
+            self.family = FXfamily(n_bits = self.fraction_bits, n_intbits = self.integer_bits)
+            self.q = FXnum(val = number, family= self.family)
+        else:
+            raise "Unsupported conversion to quire"
     
     # set quire to 0
     def clear(self):
@@ -36,15 +65,6 @@ class Quire(object):
         else:
             raise "Not int"
 
-    def from_posit(self, p):
-        self = p.get_fixed_point_binary()
-
-    def to_posit(self):
-        sign = int(self.q.scaledval < 0)
-        scale = self.integer_bits - self.q.toBinaryString().find("1") - 1
-        fraction = self.q.scaledval
-        return Posit(nbits = self.nbits, es = self.es).construct_posit(sign, scale, fraction)
-        
     def __add__(self, other):
         ret = deepcopy(self)
         ret.q += other.q
@@ -64,6 +84,9 @@ class Quire(object):
         ret = deepcopy(self)
         ret.q /= other.q
         return ret
+
+    def __str__(self):
+        return self.q.__str__()
     
     def fused_multiply_add(self, a, b):
         return None

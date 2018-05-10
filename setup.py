@@ -11,3 +11,8 @@ setup(name='PySigmoid',
       install_requires=['spfpm'],
       python_requires='>=3',
       zip_safe=False)
+
+setup(name='PySigmoid.Math',
+      packages=['PySigmoid.Math'],
+      zip_safe=False)
+      

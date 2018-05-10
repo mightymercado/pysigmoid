@@ -8,6 +8,7 @@ double sin(double x) {
     double den = 1;
     for (int i = 0; i < 1000; i++) {
         int sign = (i%2==0?1:-1);
+        printf("%f\n", mul);
         sum += (i%2==0?1:-1) * mul;
         mul *= x * x;
         mul /= 2*(i+1)*(2*(i+1)+1);

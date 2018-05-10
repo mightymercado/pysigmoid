@@ -1,5 +1,5 @@
 def twosComplement(n, bits): 
-    n = (1 << bits) - n
+    n = ((1 << bits) - n) % (1 << bits)
     return n
 
 def onesComplement(n, bits):

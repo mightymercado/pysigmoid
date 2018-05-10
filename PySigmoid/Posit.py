@@ -6,6 +6,8 @@ from ctypes import c_ulonglong, c_double
 from .BitUtils import *
 from FixedPoint import *
 
+global NBITS
+global ES
 NBITS = None
 ES = None
 
@@ -16,29 +18,38 @@ def set_posit_env(nbits, es):
 
 class Posit(object):
     def __init__(self, number = 0, nbits = None, es = None):
+        if nbits != None and es != None:
+            self.nbits = nbits
+            self.es = es
         if type(NBITS) is not int or type(ES) is not int:
             raise Exception("Set posit envrionemnt first using set_posit_env(nbits, es)")
         else:
-            nbits = NBITS
-            es = ES
+            self.nbits = NBITS
+            self.es = ES
 
         self.number = 0
-        # number of bits
-        self.nbits = nbits
-        # max number of exponent bits
-        self.es = es
         # number of bit patterns
-        self.npat = 2**nbits
+        self.npat = 2**self.nbits
         # useed
-        self.useed = 2**2**es
+        self.useed = 2**2**self.es
         # minimum positive value (bit pattern)
         self.minpos = 1
         # maximum positive value
-        self.maxpos = 2**(nbits - 1) - 1
-        self.inf = 2**(nbits - 1)
+        self.maxpos = 2**(self.nbits - 1) - 1
+        self.inf = 2**(self.nbits - 1)
         self.zero = 0
-        if type(number) == str:
-            self.set_string(number)
+
+        if type(number) == Quire:
+            sign = int(number.q.scaledval < 0)
+            if sign == 1:
+                number.q = -number.q
+            scale = number.integer_bits - number.q.toBinaryString().find("1")
+            if scale > 0:
+                scale -= 1
+            fraction = number.q.scaledval
+            self.number = Posit(nbits = self.nbits, es = self.es).construct_posit(sign, scale, fraction).number
+        elif type(number) == str:
+            self.set_bit_pattern(number)
         elif type(number) == float:
             self.set_float(number)
         elif type(number) == int:
@@ -60,7 +71,7 @@ class Posit(object):
             Sets the number to a bit pattern
         '''
         if type(x) == str:
-            if count(x, 1) + count(x, 0) == len(x):
+            if x.count("1") + x.count("0") == len(x):
                 if len(x) <= self.nbits:
                     self.number = int(x, 2)
                 else:
@@ -333,25 +344,6 @@ class Posit(object):
         getcontext().prec = 500
         return ((-1)**sign * Decimal(2)**Decimal(2**self.es * regime + exponent - n) * Decimal(f))
 
-    def get_fixed_point_binary(self):
-        family = FXfamily(n_bits = (4 * self.nbits - 8) * 2 ** self.es + 1 + 30, n_intbits = (2*self.nbits-4) + 1)
-        if self.number == 0:
-            return FXnum(0, family=family)
-        elif self.number == self.inf:
-            raise Exception("Cannot convert to fixed point")
-
-        sign, regime, exponent, fraction = self.decode() 
-
-        f = FXnum(fraction, family=family)
-        n = countBits(fraction) - 1
-
-        return ((-1)**sign * FXnum(2, family=family)**Decimal(2**self.es * regime + exponent - n) * FXnum(f, family = family))
-
-    def to_quire(self):
-        q = Quire(self.nbits, self.es, 0)
-        q.q = self.get_fixed_point_binary()
-        return q
-
     def __str__(self):
         return self.get_value().__str__()
 
@@ -396,7 +388,6 @@ class Posit(object):
         return (sign, regime, exponent, fraction)
 
     def __truediv__(self, other):
-        # this algorithm is not yet hardware friendly
         fraction = other.decode()[3] 
         # reciprocation is accurate for powers of two
         if fraction & (fraction - 1) ==  0:
@@ -405,7 +396,7 @@ class Posit(object):
         if self.number == 0 or self.number == self.inf:
             return self
         elif other.number == 0 or other.number == self.inf:
-            return self.inf
+            return other
 
         sign_a, regime_a, exponent_a, fraction_a = self.decode()
         sign_b, regime_b, exponent_b, fraction_b = other.decode()
@@ -432,45 +423,31 @@ class Posit(object):
         p.set_bit_pattern(twosComplement(self.number, self.nbits))
         return p
 
-    def sqrt_binary_search(self):
-        low = 0
-        high = self.maxpos
-        # convergence at log(number_of_bit_patterns) = nbits
-        for i in range(self.nbits):
-            m = (low + high) // 2
-            p = Posit(nbits = self.nbits, es = self.es)
-            p.set_bit_pattern(m)
-            r = p * p
-            if r == self:
-                return p
-            elif r < self:
-                low = m
-            else:
-                high = m
-        return p
+    def __trunc__(self):
+        if self.number == 0 or self.number == self.inf:
+            return self
 
-    def sqrt_newton(self):
-        t = deepcopy(self)
-        two = Posit(nbits = self.nbits, es = self.es, number = 2)
-        while True:
-            nt = (self / t + t) / two
-            if t == nt:
-                break
-            t = nt
-        return t
+        sign, regime, exponent, fraction = self.decode()
+        scale =  2**self.es * regime + exponent
 
-    def sin(self):
-        total = Quire(self.nbits, self.es, 0)
-        mul = self.to_quire()
-        x = self.to_quire()
-        sign = -1
-        i = 1
-        while mul.q != 0:
-            sign *= -1
-            total += mul * Quire(self.nbits, self.es, sign)
-            mul = mul * x * x / Quire(self.nbits, self.es, (i + 1) * (i + 2))
-            i += 1
-        return totalQ.to_posit() # round
+        if scale >= 0:  
+            if scale <= countBits(fraction) - 1:
+                fraction &= ~((1 << (countBits(fraction) - 1 - scale)) - 1)
+        else:
+            fraction = 0
+            scale = 0
+            
+        # construct posit then return
+        return self.construct_posit(sign, scale, fraction)
+
+    def __floor__():
+        return None
+
+    def __ceil__():
+        return None
+
+    def __mod__(self, other):
+        return self - self.__trunc__() / other
 
     def __repr__(self):
         return self.__str__()
