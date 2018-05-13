@@ -1,6 +1,6 @@
 from PySigmoid import Posit as P, set_posit_env
 import numpy as np
-
+.
 set_posit_env(64, 3)
 
 # square matrix of elements

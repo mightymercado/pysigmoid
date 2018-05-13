@@ -14,7 +14,6 @@ def set_posit_env(nbits, es):
     NBITS = nbits
     ES = es
 
-
 class Posit(object):
     def __init__(self, number = 0, nbits = None, es = None):
         global NBITS, ES
@@ -49,7 +48,7 @@ class Posit(object):
             fraction = number.q.scaledval
             self.number = Posit(nbits = self.nbits, es = self.es).construct_posit(sign, scale, fraction).number
         elif type(number) == str:
-            self.set_bit_pattern(number)
+            self.set_string(number)
         elif type(number) == float:
             self.set_float(number)
         elif type(number) == int:
@@ -148,13 +147,13 @@ class Posit(object):
             else:
                 if sign == 1:
                     x = x[1:]
+                    dot_index -= 1
                 # count number of fractional digits
                 fdig = len(x) - 1 - dot_index
                 # get fraction
                 fraction = int(x[:dot_index] + x[dot_index+1:])
                 exponent = countBits(fraction) - 1 - fdig
-                five = 5**fdig
-                self.number = (self.construct_posit(sign, exponent, fraction) / self.construct_posit(0, five.bit_length() - 1, five)).number
+                self.number = (self.construct_posit(sign, exponent, fraction)).number
         else:
             return "Not string"
         
@@ -179,9 +178,6 @@ class Posit(object):
         return self.to_signed_int(self.number) < self.to_signed_int(other.number)
 
     def __eq__(self, other):
-        return self.number == other.number
-
-    # multiply two posits
         return self.number == other.number
 
     # multiply two posits
@@ -222,9 +218,11 @@ class Posit(object):
         regime_length = regime + 2 if regime >= 0 else - regime + 1
 
         # overflow to maxpos underflow to minpos
-        if regime_length >= self.nbits:
+        if regime_length >= self.nbits + 1:
             p = Posit(nbits = self.nbits, es = self.es)
             p.set_bit_pattern(self.maxpos if regime >= 0 else self.minpos)
+            if sign == 1:
+                p = -p
             return p
 
         # encode regime
@@ -289,6 +287,9 @@ class Posit(object):
     def __sub__(self, other):
         return self.__add__(other.__neg__())
 
+    def __float__(self):
+        return float(self.get_value())
+
     def __abs__(self):
         if self.number == 0:
             return self
@@ -346,18 +347,18 @@ class Posit(object):
         return Posit(Quire(self)**Quire(other))
 
     def get_value(self):
+        # 500 digits of precision
+        getcontext().prec = 500
         if self.number == 0:
-            return "0"
+            return Decimal("0")
         elif self.number == self.inf:
-            return "inf"
+            return Decimal("inf")
 
         sign, regime, exponent, fraction = self.decode() 
 
         f = Decimal(fraction)
         n = countBits(fraction) - 1
 
-        # 500 digits of precision
-        getcontext().prec = 500
         return ((-1)**sign * Decimal(2)**Decimal(2**self.es * regime + exponent - n) * Decimal(f))
 
     def __str__(self):
@@ -456,14 +457,9 @@ class Posit(object):
         # construct posit then return
         return self.construct_posit(sign, scale, fraction)
 
-    def __floor__():
-        return None
-
-    def __ceil__():
-        return None
 
     def __mod__(self, other):
-        return self - self.__trunc__() / other
+        return self - (self / other).__trunc__() * other
 
     def __repr__(self):
         return self.__str__()

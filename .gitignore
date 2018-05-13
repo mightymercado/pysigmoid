@@ -1,4 +1,5 @@
 .vscode
-lib/.vscode
+*/*/.vscode
 PySigmoid.egg-info
 dist
+*/*/__pycache__

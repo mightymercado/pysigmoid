@@ -44,17 +44,13 @@ class Quire(object):
 
     def add_posit_product(self, p1, p2):
         if type(p1) == Posit and type(p2) == Posit:
-            a = p1.get_fixed_point_binary()
-            b = p2.get_fixed_point_binary()
-            self.q += a * b
+            self.q += Quire(a) * Quire(b)
         else:
             raise Exception("Arguments must be posit")
 
     def sub_posit_product(self, p1, p2):
         if type(p1) == Posit and type(p2) == Posit:
-            a = p1.get_fixed_point_binary()
-            b = p2.get_fixed_point_binary()
-            self.q -= a*b
+            self.q -= Quire(a) * Quire(b)
         else:
             raise Exception("Arguments must be posit")
 
