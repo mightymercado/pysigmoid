@@ -153,7 +153,7 @@ class Posit(object):
                 # get fraction
                 fraction = int(x[:dot_index] + x[dot_index+1:])
                 exponent = countBits(fraction) - 1 - fdig
-                self.number = (self.construct_posit(sign, exponent, fraction)).number
+                self.number = (self.construct_posit(sign, exponent, fraction) / Posit(5**fdig)).number
         else:
             return "Not string"
         
@@ -463,6 +463,9 @@ class Posit(object):
 
     def __repr__(self):
         return self.__str__()
+
+    def __int__(self):
+        return int(self.__trunc__().get_value())
 
     def sigmoid(self):
         self.number = toggleBit(self.number, self.nbits-1)

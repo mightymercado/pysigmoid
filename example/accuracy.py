@@ -5,7 +5,6 @@ from decimal import Decimal as D, getcontext
 import numpy as np
 import matplotlib.pyplot as plt
 
-
 # 500 digits of precision
 getcontext().prec = 500
 def decacc(x, y):
@@ -17,9 +16,32 @@ def decacc(x, y):
         except:
             return 0
 
-set_posit_env(8, 1)
+        
+start = -D(float(np.finfo(np.float16).max))
+end = D(float(np.finfo(np.float16).max))
+i = 0
+xx = []
+yy = []
+while start <= end:
+    x = D(float(np.float16(start)))
+    y = start
+    print(x, y, decacc(x, y))
+    xx.append(start)
+    yy.append(decacc(x,y))
+    start += D("0.1")
+    i+=1
+ 
+# Plot
+plt.scatter(xx, yy, alpha=0.5)
+plt.xlabel('x')
+plt.ylabel('y')
+plt.show()
 
-p = Posit(0)
+set_posit_env(16, 2)
+
+p = Posit()
+p.set_bit_pattern(p.maxpos)
+p = -p
 q = Posit()
 q.set_bit_pattern(p.maxpos)
 start = p.get_value()
@@ -34,7 +56,7 @@ while start <= end:
     print(x, y, decacc(x,y))
     xx.append(start)
     yy.append(decacc(x,y))
-    start += D("2")
+    start += D("1000000")
     i+=1
  
 # Plot
