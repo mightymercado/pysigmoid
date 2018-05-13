@@ -368,7 +368,7 @@ class Posit(object):
 
     def get_value(self):
         # 500 digits of precision
-        getcontext().prec = 500
+        getcontext().prec = 50
         if self.number == 0:
             return Decimal("0")
         elif self.number == self.inf:

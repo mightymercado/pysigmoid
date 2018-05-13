@@ -38,5 +38,9 @@ while start <= end:
     start += 0.01
 
 # Plot
-plt.plot(xx, yy, xx, yy2, alpha = 0.5)
+
+a = plt.plot(xx, yy, color = 'red', label = "Posit Flip Sign, Shift Right Two Times")
+b = plt.plot(xx, yy2, color = 'blue', label = "Floating Point 1/(1 + e^-x)")
+plt.legend()
+
 plt.show()

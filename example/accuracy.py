@@ -4,9 +4,10 @@ from math import log
 from decimal import Decimal as D, getcontext
 import numpy as np
 import matplotlib.pyplot as plt
+from copy import deepcopy 
 
 # 500 digits of precision
-getcontext().prec = 500
+getcontext().prec = 50
 def decacc(x, y):
     if x == y:
         return D('inf')
@@ -21,15 +22,26 @@ set_posit_env(8, 1)
 p = Posit()
 p.set_bit_pattern(p.maxpos)
 p = -p
-while p.number <= p.maxpos:
-    q = p
-    q.sigmoid()
+p = p.get_value()
+
+q = Posit()
+q.set_bit_pattern(q.maxpos),
+q = q.get_value()
+
+xx = []
+yy = []
+while p <= q:
+    t = deepcopy(p)
+    x = Posit(float(p)).get_value()
+    y = p
+    d = decacc(x, y)
     xx.append(float(p))
-    yy.append(float(q))
-    p.number += 1
+    yy.append(float(d))
+    p += D("1")
+    print(p)
  
 # Plot
-plt.plot(xx, yy, alpha=0.5)
+plt.plot(xx, yy, alpha=1)
 plt.xlabel('x')
-plt.ylabel('y')
+plt.ylabel('Decimal Accuracy of x when converting to Posit')
 plt.show()
