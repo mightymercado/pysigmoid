@@ -1,9 +1,8 @@
 from PySigmoid import Posit as P, set_posit_env
 import numpy as np
-.
 set_posit_env(64, 3)
 
-# square matrix of elements
+# input matrix
 reg = [
     [0, 2, 3, 4],
     [3, 4, 5, 6],
@@ -11,9 +10,11 @@ reg = [
     [3, 5, 3, 4]
 ]
 
-pos = [list(map(P, e)) for e in reg] # convert to posit
+# functiont to cast a regular matrix to a posit matrix
+posify = lambda x: [list(map(P, e)) for e in x]
+pos = posify(reg) # convert to posit
 
-b = np.matrix(reg)
+b = np.matrix(pos)
 a = np.matrix(pos)
 
 # addition
@@ -30,4 +31,5 @@ print(np.transpose(b))
 print(np.transpose(a))
 # exponentiate
 print(b**2)
-print(a**2)
+# dot product
+print(a.dot(b))

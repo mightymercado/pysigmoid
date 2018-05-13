@@ -166,19 +166,39 @@ class Posit(object):
         return x >> (self.nbits - 1)
 
     def to_signed_int(self, x):
-        sign = self.get_sign_bit(self.number)
+        sign = self.get_sign_bit(x)
         if sign == 1:
-            x = - twosComplement(x, self.nbits)
+            if x != self.inf:
+                x = - twosComplement(unsetBit(x, self.nbits-1), self.nbits)
         return x
 
-    def __gt__(self, other):
-        return self.to_signed_int(self.number) > self.to_signed_int(other.number)
+    def __ge__(self, other):
+        if type(other) != Posit:
+            other = Posit(other)
+        return self.to_signed_int(self.number) >= self.to_signed_int(other.number)
+
+    def __le__(self, other):
+        if type(other) != Posit:
+            other = Posit(other)
+        return self.to_signed_int(self.number) <= self.to_signed_int(other.number)
 
     def __lt__(self, other):
+        if type(other) != Posit:
+            other = Posit(other)
         return self.to_signed_int(self.number) < self.to_signed_int(other.number)
 
+    def __gt__(self, other):
+        if type(other) != Posit:
+            other = Posit(other)
+        return self.to_signed_int(self.number) > self.to_signed_int(other.number)
+
     def __eq__(self, other):
+        if type(other) != Posit:
+            other = Posit(other)
         return self.number == other.number
+
+    def increment_posit(self):
+        self.number = (self.number + 1) % (1 << self.nbits)
 
     # multiply two posits
     def __mul__(self, other):
@@ -228,7 +248,7 @@ class Posit(object):
         # encode regime
         if regime >= 0:
             n |= createMask(regime_length - 1, self.nbits - regime_length)
-        else:
+        elif self.nbits - 1 >= regime_length:
             n |= setBit(n, self.nbits - 1 - regime_length)
 
         # count number of bits available for exponent and fraction
