@@ -1,20 +1,19 @@
 from copy import *
 from FixedPoint import *
-
+from .config import *
 class Quire(object):
     def __init__(self, number = 0, nbits = None, es = None):
-        global NBITS, ES
         if nbits != None and es != None:
             self.nbits = nbits
             self.es = es
         elif type(number) == Posit:
             self.nbits = number.nbits
             self.es = number.es
-        elif type(NBITS) is not int or type(ES) is not int:
+        elif type(Quire.NBITS) is not int or type(Quire.ES) is not int:
             raise Exception("Set posit envrionemnt first using set_posit_env(nbits, es)")
         else:
-            self.nbits = NBITS
-            self.es = ES
+            self.nbits = Quire.NBITS
+            self.es = Quire.ES
 
         self.fraction_bits = (2 * self.nbits - 4) * 2 ** self.es + 1
         self.integer_bits = (2 * self.nbits - 4) * 2 ** self.es + 1 + 30

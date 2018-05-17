@@ -5,7 +5,7 @@ from PySigmoid import Posit, set_posit_env
 shortcuts.set_up()
 class TestFloat(unittest.TestCase):
     def test_small_cast(self):
-        ctx = shortcuttests.get_context()
+        ctx = shortcuts.get_context()
         ctx.load_libs(['../PySigmoid/posit-javascript/js/decimallookupv2.js'])
         start = 1.5
         diff = 0.0001

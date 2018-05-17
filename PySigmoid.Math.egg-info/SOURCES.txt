@@ -1,0 +1,9 @@
+README.md
+setup.py
+PySigmoid.Math.egg-info/PKG-INFO
+PySigmoid.Math.egg-info/SOURCES.txt
+PySigmoid.Math.egg-info/dependency_links.txt
+PySigmoid.Math.egg-info/not-zip-safe
+PySigmoid.Math.egg-info/top_level.txt
+PySigmoid/Math/Math.py
+PySigmoid/Math/__init__.py

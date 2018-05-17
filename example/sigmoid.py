@@ -1,4 +1,3 @@
-
 from PySigmoid import Posit, set_posit_env
 from math import log
 from decimal import Decimal as D, getcontext
@@ -8,7 +7,7 @@ from math import exp
 from copy import deepcopy as dc
 
 # 500 digits of precision
-getcontext().prec = 500
+getcontext().prec = 50
 def decacc(x, y):
     if x == y:
         return D('inf')
@@ -20,8 +19,8 @@ def decacc(x, y):
 
 set_posit_env(8, 0)
 
-start = -10
-end = 10
+start = -100
+end = 100
 xx = []
 yy = []
 yy2 = []
@@ -31,7 +30,7 @@ def sigmoid(x):
 
 while start <= end:
     q = Posit(start)
-    q.sigmoid()
+    q = q.sigmoid()
     xx.append(start)
     yy.append(float(q))
     yy2.append(sigmoid(start))
