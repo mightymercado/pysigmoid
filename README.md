@@ -1,10 +1,48 @@
 # `PySigmoid`
 
+> A Python implementation of [Posits] and Quires with linear algebra applications. Posits were
+proposed by [John Gustafson]. The sigmoid in PySigmoid is motivated by the [application of Posits in 8-bit nerual networks]. Gustafson introduced this number format as a replacement for the IEEE 754 floating point which has many issues.
+
 # How to install
 > pip3 install PySigmoid
 
-> A Python implementation of [Posits] and Quires with linear algebra applications. Posits were
-proposed by [John Gustafson]. The sigmoid in PySigmoid is motivated by the [application of Posits in 8-bit nerual networks]. Gustafson introduced this number format as a replacement for the IEEE 754 floating point which has many issues.
+# Posit Examples
+```python
+from PySigmoid import *
+from math import *
+set_posit_env(32, 2)
+# float to posit
+print(Posit(3.2))
+# int to posit
+print(Posit(31238912839))
+# string to posit
+print(Posit("-2.333344"))
+
+# posit to float
+print(float(Posit("3.2")))
+# posit to int
+print(int(Posit(31238912839)))
+# posit to string
+print(str(Posit("-2.333344")))
+
+a = Posit(1)
+b = Posit(2)
+# Addition
+print(a+b)
+# Subtraction
+print(a-b)
+# Division
+print(a/b)
+# multiplication
+print(a*b)
+# square root
+print(sqrt(a))
+# power
+print(a**b)
+
+# operation with other types works too!
+print(2.5 + a + 3 + b)
+```
 
 # Issues with IEEE Floats
 1. **Wasted Bit Patterns** - 32-bit IEEE floating point has around sixteen million ways to represent Not-A-Number

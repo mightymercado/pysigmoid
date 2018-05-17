@@ -3,3 +3,4 @@
 PySigmoid.egg-info
 dist
 */*/__pycache__
+PySigmoid.Math.egg-info
