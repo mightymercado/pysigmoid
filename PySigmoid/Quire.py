@@ -1,6 +1,5 @@
 from copy import *
 from FixedPoint import *
-from .config import *
 class Quire(object):
     def __init__(self, number = 0, nbits = None, es = None):
         if nbits != None and es != None:
