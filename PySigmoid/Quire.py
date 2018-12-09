@@ -42,13 +42,13 @@ class Quire(object):
 
     def add_posit_product(self, p1, p2):
         if type(p1) == Posit and type(p2) == Posit:
-            self.q += Quire(a) * Quire(b)
+            self.q += Quire(p1) * Quire(p2)
         else:
             raise Exception("Arguments must be posit")
 
     def sub_posit_product(self, p1, p2):
         if type(p1) == Posit and type(p2) == Posit:
-            self.q -= Quire(a) * Quire(b)
+            self.q -= Quire(p1) * Quire(p2)
         else:
             raise Exception("Arguments must be posit")
 
@@ -85,21 +85,6 @@ class Quire(object):
 
     def __str__(self):
         return self.q.__str__()
-    
-    def fused_multiply_add(self, a, b):
-        return None
-        
-    def fused_add_multiply(self, a, b):
-        return None
-
-    def fused_multiply_multiply_subtract(self, a, b):
-        return None
-
-    def fused_sum(self, a, b):
-        return None
-
-    def fused_dot_product(self, a, b):
-        return None
 
     def reduce2PI(self):
         sign = -1 if self.q.scaledval < 0 else 1
