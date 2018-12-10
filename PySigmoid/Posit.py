@@ -510,6 +510,46 @@ class Posit(object):
 
     def __int__(self):
         return int(self.__trunc__().get_value())
+    
+    def fused_multiply_add(self, a, b):
+        '''
+            Input: Posits a and b to multiply
+            Performs the operation (a×b)+c deferring the rounding until the last operation.
+        '''
+        if type(a) == Posit and type(b) == Posit:
+            return Posit(Quire(self) + (Quire(a) * Quire(b)))
+        else:
+            raise Exception("Arguments must be posit")
+        
+    def fused_add_multiply(self, a, b):
+        '''
+            Input: Posits a and b to add
+            Performs the operation (a+b)×c deferring the rounding until the last operation.
+        '''
+        if type(a) == Posit and type(b) == Posit:
+            return Posit(Quire(self) * (Quire(a) + Quire(b)))
+        else:
+            raise Exception("Arguments must be posit")
+
+    def fused_multiply_multiply_subtract(self, b, c, d):
+        '''
+            Input: Posits b to multiply and c, d to multiply and substract
+            Performs the operation (a×b) - (c×d) deferring the rounding until the last operation.
+        '''
+        if type(b) == Posit and type(c) == Posit and type(d) == Posit:
+            mul1 = Quire(self) * Quire(b)
+            mul2 = Quire(c) * Quire(d)
+            return Posit(mul1 - mul2)
+        else:
+            raise Exception("Arguments must be posit")
+
+    def fused_sum(self, a, b):
+        # TODO
+        return None
+
+    def fused_dot_product(self, a, b):
+        # TODO
+        return None
 
     def sigmoid(self):
         other = deepcopy(self)
