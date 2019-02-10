@@ -510,6 +510,61 @@ class Posit(object):
 
     def __int__(self):
         return int(self.__trunc__().get_value())
+    
+    def fused_multiply_add(self, a, b):
+        '''
+            Input: Posits a and b to multiply
+            Performs the operation (a×b)+c deferring the rounding until the last operation.
+        '''
+        if type(a) == Posit and type(b) == Posit:
+            return Posit(Quire(self) + (Quire(a) * Quire(b)))
+        else:
+            raise Exception("Arguments must be posit")
+        
+    def fused_add_multiply(self, a, b):
+        '''
+            Input: Posits a and b to add
+            Performs the operation (a+b)×c deferring the rounding until the last operation.
+        '''
+        if type(a) == Posit and type(b) == Posit:
+            return Posit(Quire(self) * (Quire(a) + Quire(b)))
+        else:
+            raise Exception("Arguments must be posit")
+
+    def fused_multiply_multiply_subtract(self, b, c, d):
+        '''
+            Input: Posits b to multiply and c, d to multiply and substract
+            Performs the operation (a×b) - (c×d) deferring the rounding until the last operation.
+        '''
+        if type(b) == Posit and type(c) == Posit and type(d) == Posit:
+            mul1 = Quire(self) * Quire(b)
+            mul2 = Quire(c) * Quire(d)
+            return Posit(mul1 - mul2)
+        else:
+            raise Exception("Arguments must be posit")
+            
+    @staticmethod
+    def fused_sum(a):
+        if all(isinstance(x, Posit) for x in a):
+            r = reduce(operator.add, map(lambda x: Quire(x), a))
+            return Posit(r)
+        else:
+            raise Exception("Argument must be a list of posit")
+
+    @staticmethod
+    def fused_dot_product(a, b):
+        if all(isinstance(x, Posit) for x in (a + b)):
+            r = reduce(operator.add, map(lambda x, y: Quire(x) * Quire(y), a,b))
+            return Posit(r)
+        else:
+            raise Exception("Arguments must be lists of posit")
+            
+    @staticmethod
+    def fused_matmult(a, b):
+        zip_b = zip(*b)
+        # uncomment next line if python 3 :
+        zip_b = list(zip_b)
+        return [[fused_dot_product(row_a, col_b) for col_b in zip_b] for row_a in a]
 
     def sigmoid(self):
         other = deepcopy(self)
