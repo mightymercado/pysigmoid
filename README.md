@@ -75,7 +75,7 @@ All other bit patterns are valid distinct non-zero real numbers. ± inf serves a
 - http://posithub.org/ - information and news about posits and universal numbers
 
 # Mission
-I want to make this a really useable software implementation of Posits. In particular, I want it to be useful in linear algebra where floating point computations are everywhere. It is still a work in progress and has a still a long way to go.
+I want to make this a really useable software implementation of Posits. In particular, I want it to be useful in linear algebra, where floating point computations are everywhere. It is still a work in progress and still has a long way to go.
 
 # License
 
