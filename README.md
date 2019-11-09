@@ -1,7 +1,7 @@
 # `PySigmoid`
 
 > A Python implementation of [Posits] and Quires with linear algebra applications. Posits were
-proposed by [John Gustafson]. The sigmoid in PySigmoid is motivated by the [application of Posits in 8-bit nerual networks]. Gustafson introduced this number format as a replacement for the IEEE 754 floating point which has many issues.
+proposed by [John Gustafson]. The sigmoid in PySigmoid is motivated by the [application of Posits in 8-bit neural networks]. Gustafson introduced this number format as a replacement for the IEEE 754 floating point, which has many issues.
 
 # How to install
 > pip3 install PySigmoid
@@ -66,7 +66,7 @@ All other bit patterns are valid distinct non-zero real numbers. ± inf serves a
 5. **Tapered Accuracy** - Tapered accuracy is when values with small exponent have more digits of accuracy and values with large exponents have less digits of accuracy. This concept was first introduced by Morris (1971) in his paper ”Tapered Floating Point: A New Floating-Point Representation”.
 
 [John Gustafson]: https://en.wikipedia.org/wiki/John_Gustafson_(scientist)
-[application of Posits in 8-bit nerual networks]: https://github.com/interplanetary-robot/SigmoidNumbers
+[application of Posits in 8-bit neural networks]: https://github.com/interplanetary-robot/SigmoidNumbers
 
 # References and Resources
 
@@ -75,7 +75,7 @@ All other bit patterns are valid distinct non-zero real numbers. ± inf serves a
 - http://posithub.org/ - information and news about posits and universal numbers
 
 # Mission
-I want to make this a really useable software implementation of Posits. In particular, I want it to be useful in linear algebra where floating point computations are everywhere. It is still a work in progress and has a still a long way to go.
+I want to make this a really useable software implementation of Posits. In particular, I want it to be useful in linear algebra, where floating point computations are everywhere. It is still a work in progress and still has a long way to go.
 
 # License
 
