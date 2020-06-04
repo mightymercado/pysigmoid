@@ -1,5 +1,6 @@
 # `PySigmoid`
 (This is no longer maintained, but feel free to make Pull Requests).
+PS This contains pretty bad Python fode because it was written a long time ago.
 > A Python implementation of [Posits] and Quires with linear algebra applications. Posits were
 proposed by [John Gustafson]. The sigmoid in PySigmoid is motivated by the [application of Posits in 8-bit neural networks]. Gustafson introduced this number format as a replacement for the IEEE 754 floating point, which has many issues.
 
